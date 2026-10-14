@@ -170,33 +170,58 @@ class _SolarScreenState extends State<SolarScreen> {
               children: [
                 Text(
                   isEmptyCleanSlate
-                      ? '☀️ Ready for Solar Net Balancing'
+                      ? '☀️ Clean Slate Active'
                       : (isSurplus
-                          ? '🏆 Zero Electricity Bill Achieved!'
-                          : '⚡ Solar Slashes ${balance.offsetPercentage.toStringAsFixed(0)}% of Your Bill!'),
+                          ? '🏆 100% Net Zero Offset'
+                          : '⚡ Slashes ${balance.offsetPercentage.toStringAsFixed(0)}% Grid Draw'),
                   style: AppTypography.style(
                     fontWeight: FontWeight.w800,
-                    fontSize: 14.5,
+                    fontSize: 14,
                     color: AppTheme.textDark,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  isEmptyCleanSlate
-                      ? 'Add your household appliances and enter solar inverter specs or generation below to compute net grid balance and savings.'
-                      : (isSurplus
-                          ? 'Your solar generation completely covers household appliance usage with +${balance.gridExportKwh.toStringAsFixed(0)} kWh extra units exported to the utility grid, earning ~${Formatters.formatCurrency(balance.exportEarnings, symbol: currency)}/mo in Discom feed-in credits.'
-                          : 'Solar output cuts your grid demand from ${balance.applianceMonthlyKwh.toStringAsFixed(0)} kWh down to only ${balance.gridImportKwh.toStringAsFixed(0)} kWh. Your monthly bill drops from ${Formatters.formatCurrency(balance.originalBill, symbol: currency)} to only ${Formatters.formatCurrency(balance.solarNetBill, symbol: currency)}.'),
-                  style: AppTypography.style(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: AppTheme.textDark.withValues(alpha: 0.8),
-                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _buildOutcomeBadge('☀️ +${balance.solarMonthlyKwh.toStringAsFixed(0)} u', AppTheme.solarGold),
+                    _buildOutcomeBadge('⚡ −${balance.applianceMonthlyKwh.toStringAsFixed(0)} u', AppTheme.electricCyan),
+                    if (isSurplus)
+                      _buildOutcomeBadge('📤 +${balance.gridExportKwh.toStringAsFixed(0)} u Export', AppTheme.emeraldPrimary)
+                    else
+                      _buildOutcomeBadge('📥 ${balance.gridImportKwh.toStringAsFixed(0)} u Draw', AppTheme.warmAmber),
+                    _buildOutcomeBadge(
+                      isSurplus
+                          ? '💰 Saved ${Formatters.formatCurrency(balance.monthlySavings, symbol: currency)}'
+                          : '💰 Bill: ${Formatters.formatCurrency(balance.solarNetBill, symbol: currency)}',
+                      isSurplus ? AppTheme.emeraldPrimary : AppTheme.alertCoral,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOutcomeBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.style(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -378,9 +403,13 @@ class _SolarScreenState extends State<SolarScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.borderSubtle),
                     ),
-                    child: Text(
-                      '${energy.voltageVolts.toStringAsFixed(0)}V × ${energy.currentAmps.toStringAsFixed(1)}A = ${(energy.voltageVolts * energy.currentAmps).toStringAsFixed(0)} Watts ➔ ${(energy.effectiveSolarMonthlyKwh / 30.0).toStringAsFixed(1)} units/day (${energy.effectiveSolarMonthlyKwh.toStringAsFixed(0)} kWh/mo)',
-                      style: AppTypography.style(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.emeraldPrimary),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${energy.voltageVolts.toStringAsFixed(0)}V × ${energy.currentAmps.toStringAsFixed(1)}A = ${(energy.voltageVolts * energy.currentAmps).toStringAsFixed(0)}W ➔ ${(energy.effectiveSolarMonthlyKwh / 30.0).toStringAsFixed(1)} u/d (${energy.effectiveSolarMonthlyKwh.toStringAsFixed(0)} u/mo)',
+                        style: AppTypography.style(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.emeraldPrimary),
+                      ),
                     ),
                   ),
                 ],
@@ -762,13 +791,17 @@ class _SolarScreenState extends State<SolarScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            mainValue,
-            style: AppTypography.style(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: color,
-              letterSpacing: -0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              mainValue,
+              style: AppTypography.style(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: color,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 2),
@@ -779,6 +812,8 @@ class _SolarScreenState extends State<SolarScreen> {
               color: AppTheme.textMuted,
               fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

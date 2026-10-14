@@ -547,13 +547,15 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
                                 ),
                                 child: Text(
                                   isCovered
-                                      ? '⚡ 100% Solar-Powered (${solarShare.toStringAsFixed(0)}% solar load)'
-                                      : '☀️ Draws ${solarShare.toStringAsFixed(0)}% of Solar Yield',
+                                      ? '⚡ 100% Solar-Powered (${solarShare.toStringAsFixed(0)}% load)'
+                                      : '☀️ Draws ${solarShare.toStringAsFixed(0)}% Solar Yield',
                                   style: AppTypography.style(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: isCovered ? AppTheme.emeraldPrimary : AppTheme.solarGold,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

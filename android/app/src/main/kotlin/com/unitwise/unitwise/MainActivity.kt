@@ -160,9 +160,9 @@ class MainActivity : FlutterActivity() {
             "latestVersion" to "0.0.2",
             "latestBuild" to 2,
             "releaseDate" to "October 2026",
-            "releaseNotes" to "• Live Solar vs Appliance Net Energy Balance Engine\n• Direct Inverter Voltage (V) × Current (A) input mode\n• Zero-overflow responsive layout across all device widths\n• Complete Clean-Slate First-Time Onboarding\n• Internal Native OTA In-App Updater",
-            "fileSizeMb" to 14.8,
-            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.1/unitwise-v0.0.1.apk"
+            "releaseNotes" to "• All-new high visual density Dashboard with Power Balance Dial\n• Modern 74dp bottom navigation bar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Real UnitWise Android launcher icon across all mipmap densities\n• Robust in-app OTA updater with direct GitHub Releases CDN streaming",
+            "fileSizeMb" to 15.2,
+            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.2/unitwise-v0.0.2.apk"
         )
     }
 
@@ -178,65 +178,66 @@ class MainActivity : FlutterActivity() {
                     outputFile.delete()
                 }
 
-                var success = false
-                if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {
-                    try {
-                        val url = URL(downloadUrl)
-                        val connection = url.openConnection() as HttpURLConnection
-                        connection.connectTimeout = 8000
-                        connection.readTimeout = 12000
-                        connection.connect()
-
-                        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                            val fileLength = connection.contentLength
-                            val input: InputStream = connection.inputStream
-                            val output = FileOutputStream(outputFile)
-
-                            val data = ByteArray(4096)
-                            var total: Long = 0
-                            var count: Int
-                            while (input.read(data).also { count = it } != -1) {
-                                total += count.toLong()
-                                output.write(data, 0, count)
-                                val progress = if (fileLength > 0) (total * 100 / fileLength).toInt() else 0
-                                runOnUiThread {
-                                    methodChannel?.invokeMethod(
-                                        "onDownloadProgress",
-                                        mapOf("progress" to progress, "downloaded" to total, "total" to fileLength)
-                                    )
-                                }
-                            }
-                            output.flush()
-                            output.close()
-                            input.close()
-                            success = true
-                        }
-                    } catch (_: Exception) {
-                        success = false
-                    }
+                if (!downloadUrl.startsWith("http://") && !downloadUrl.startsWith("https://")) {
+                    throw Exception("Invalid download URL: $downloadUrl")
                 }
 
-                // If remote network is not reachable (e.g. offline or mock environment),
-                // create verified local APK package mock to demonstrate complete in-app pipeline
-                if (!success) {
-                    val totalBytes = (14.8 * 1024 * 1024).toLong()
-                    val output = FileOutputStream(outputFile)
-                    val chunk = ByteArray(65536)
-                    var written: Long = 0
-                    for (i in 1..50) {
-                        Thread.sleep(35)
-                        output.write(chunk)
-                        written += chunk.size
-                        val progress = (i * 2)
-                        runOnUiThread {
-                            methodChannel?.invokeMethod(
-                                "onDownloadProgress",
-                                mapOf("progress" to progress, "downloaded" to written, "total" to totalBytes)
-                            )
+                var currentUrl = downloadUrl
+                var redirects = 0
+                var conn: HttpURLConnection? = null
+
+                // Traverse redirects (GitHub Releases redirect to AWS S3 CDN: objects.githubusercontent.com)
+                while (redirects < 6) {
+                    val url = URL(currentUrl)
+                    conn = (url.openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 15000
+                        readTimeout = 30000
+                        instanceFollowRedirects = true
+                        setRequestProperty("User-Agent", "UnitWise-OTA-Updater")
+                    }
+                    conn.connect()
+                    val code = conn.responseCode
+                    if (code in listOf(HttpURLConnection.HTTP_MOVED_PERM, HttpURLConnection.HTTP_MOVED_TEMP, 307, 308)) {
+                        val newLocation = conn.getHeaderField("Location")
+                        if (!newLocation.isNullOrEmpty()) {
+                            currentUrl = newLocation
+                            redirects++
+                            conn.disconnect()
+                            continue
                         }
                     }
-                    output.flush()
-                    output.close()
+                    break
+                }
+
+                if (conn == null || conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    throw Exception("Download server returned HTTP ${conn?.responseCode ?: -1}")
+                }
+
+                val fileLength = conn.contentLength
+                val input: InputStream = conn.inputStream
+                val output = FileOutputStream(outputFile)
+
+                val data = ByteArray(8192)
+                var total: Long = 0
+                var count: Int
+                while (input.read(data).also { count = it } != -1) {
+                    total += count.toLong()
+                    output.write(data, 0, count)
+                    val progress = if (fileLength > 0) (total * 100 / fileLength).toInt() else 0
+                    runOnUiThread {
+                        methodChannel?.invokeMethod(
+                            "onDownloadProgress",
+                            mapOf("progress" to progress, "downloaded" to total, "total" to fileLength)
+                        )
+                    }
+                }
+                output.flush()
+                output.close()
+                input.close()
+                conn.disconnect()
+
+                if (!outputFile.exists() || outputFile.length() == 0L) {
+                    throw Exception("Downloaded file is empty")
                 }
 
                 runOnUiThread {
@@ -257,6 +258,18 @@ class MainActivity : FlutterActivity() {
     private fun triggerInternalPackageInstall(filePath: String): Boolean {
         val file = File(filePath)
         if (!file.exists()) return false
+
+        // On Android 8.0+ (Oreo), check if app is permitted to request package installs
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!packageManager.canRequestPackageInstalls()) {
+                val manageIntent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:$packageName")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(manageIntent)
+                return false
+            }
+        }
 
         val authority = "${applicationContext.packageName}.fileprovider"
         val apkUri: Uri = FileProvider.getUriForFile(applicationContext, authority, file)

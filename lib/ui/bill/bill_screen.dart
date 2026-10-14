@@ -99,48 +99,61 @@ class _BillScreenState extends State<BillScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                balance.isSurplus ? Icons.verified : Icons.solar_power_outlined,
-                                size: 15,
-                                color: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.solarGold,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'NET PAYABLE WITH SOLAR',
-                                style: AppTypography.style(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  balance.isSurplus ? Icons.verified : Icons.solar_power_outlined,
+                                  size: 15,
                                   color: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.solarGold,
-                                  letterSpacing: 0.8,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'NET PAYABLE WITH SOLAR',
+                                    style: AppTypography.style(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.solarGold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                Formatters.formatCurrency(balance.solarNetBill, symbol: currency),
+                                style: AppTypography.style(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w900,
+                                  color: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.textDark,
+                                  letterSpacing: -1.0,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            Formatters.formatCurrency(balance.solarNetBill, symbol: currency),
-                            style: AppTypography.style(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              color: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.textDark,
-                              letterSpacing: -1.0,
                             ),
-                          ),
-                          Text(
-                            (balance.solarMonthlyKwh == 0 && balance.applianceMonthlyKwh == 0)
-                                ? 'No appliances added yet. Add devices to estimate bill.'
-                                : (balance.isSurplus
-                                    ? 'Zero bill (Saves ${Formatters.formatCurrency(balance.monthlySavings, symbol: currency)}/mo)'
-                                    : 'Slashed from ${Formatters.formatCurrency(balance.originalBill, symbol: currency)} (Save ${Formatters.formatCurrency(balance.monthlySavings, symbol: currency)})'),
-                            style: AppTypography.style(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
-                          ),
-                        ],
+                            Text(
+                              (balance.solarMonthlyKwh == 0 && balance.applianceMonthlyKwh == 0)
+                                  ? 'Clean slate. Add devices to estimate.'
+                                  : (balance.isSurplus
+                                      ? 'Zero bill (Save ${Formatters.formatCurrency(balance.monthlySavings, symbol: currency)})'
+                                      : 'Save ${Formatters.formatCurrency(balance.monthlySavings, symbol: currency)}/mo with solar'),
+                              style: AppTypography.style(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
@@ -177,14 +190,19 @@ class _BillScreenState extends State<BillScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Tariff: ${tariff.name}',
-                        style: AppTypography.style(
-                          fontSize: 12,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          'Tariff: ${tariff.name}',
+                          style: AppTypography.style(
+                            fontSize: 12,
+                            color: AppTheme.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         'Utility Gross: ${Formatters.formatCurrency(bill.totalBill, symbol: currency)}',
                         style: AppTypography.style(
@@ -239,9 +257,11 @@ class _BillScreenState extends State<BillScreen> {
                         ),
                         Text(
                           balance.isSurplus
-                              ? '+${balance.gridExportKwh.toStringAsFixed(0)} surplus units sent to grid. Discom credit: ${Formatters.formatCurrency(balance.exportEarnings, symbol: currency)}.'
-                              : 'Your solar system covers ${balance.offsetPercentage.toStringAsFixed(0)}% of demand. Only ${balance.gridImportKwh.toStringAsFixed(0)} units are billed by your Discom.',
+                              ? '+${balance.gridExportKwh.toStringAsFixed(0)} u sent to grid • Credit: ${Formatters.formatCurrency(balance.exportEarnings, symbol: currency)}'
+                              : 'Solar offsets ${balance.offsetPercentage.toStringAsFixed(0)}% • ${balance.gridImportKwh.toStringAsFixed(0)} u from Discom',
                           style: AppTypography.style(fontSize: 11.5, color: AppTheme.textMuted),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

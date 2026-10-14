@@ -59,10 +59,10 @@ void main() {
     expect(find.byType(FloatingOnboardingCard), findsNothing);
 
     // 4. Verify Dashboard displays clean slate with zero errors
-    expect(find.textContaining('MONTHLY CONSUMPTION'), findsOneWidget);
+    expect(find.textContaining('ENERGY BALANCE'), findsOneWidget);
     expect(find.text('ESTIMATED BILL'), findsOneWidget);
-    expect(find.text('TOP ENERGY CONSUMERS'), findsOneWidget);
-    expect(find.text('No appliances added yet.'), findsOneWidget);
+    expect(find.text('TOP CONSUMING DEVICES'), findsOneWidget);
+    expect(find.text('No appliances added yet'), findsOneWidget);
   });
 
   test('NativeChannel update check delivers internal OTA metadata', () async {

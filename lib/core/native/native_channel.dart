@@ -134,9 +134,9 @@ class NativeChannel {
       latestVersion: '0.0.2',
       latestBuild: 2,
       releaseDate: 'October 2026',
-      releaseNotes: '• Live Solar vs Appliance Net Energy Balance Engine\n• Direct Inverter Voltage (V) × Current (A) input mode\n• Zero-overflow responsive layout across all device widths\n• Complete Clean-Slate First-Time Onboarding\n• Internal Native OTA In-App Updater',
-      fileSizeMb: 14.8,
-      downloadUrl: 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.1/unitwise-v0.0.1.apk',
+      releaseNotes: '• All-new high visual density Dashboard with Power Balance Dial\n• Modern 74dp bottom navigation bar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Real UnitWise Android launcher icon across all mipmap densities\n• Robust in-app OTA updater with direct GitHub Releases CDN streaming',
+      fileSizeMb: 15.2,
+      downloadUrl: 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.2/unitwise-v0.0.2.apk',
     );
   }
 

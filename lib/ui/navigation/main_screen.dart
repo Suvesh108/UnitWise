@@ -204,20 +204,28 @@ class _MainScreenState extends State<MainScreen> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        height: 74 + MediaQuery.of(context).padding.bottom,
+        decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: AppTheme.borderSubtle, width: 1.0)),
+          border: const Border(top: BorderSide(color: AppTheme.borderSubtle, width: 1.0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Dashboard'),
-                _buildNavItem(1, Icons.devices_outlined, Icons.devices_rounded, 'Appliances'),
-                _buildNavItem(2, Icons.receipt_outlined, Icons.receipt_long_rounded, 'Bill'),
-                _buildNavItem(3, Icons.wb_sunny_outlined, Icons.wb_sunny_rounded, 'Solar'),
+                Expanded(child: _buildNavItem(0, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Dashboard')),
+                Expanded(child: _buildNavItem(1, Icons.devices_outlined, Icons.devices_rounded, 'Appliances')),
+                Expanded(child: _buildNavItem(2, Icons.receipt_outlined, Icons.receipt_long_rounded, 'Bill')),
+                Expanded(child: _buildNavItem(3, Icons.wb_sunny_outlined, Icons.wb_sunny_rounded, 'Solar')),
               ],
             ),
           ),
@@ -231,32 +239,38 @@ class _MainScreenState extends State<MainScreen> {
     return InkWell(
       onTap: () => _navigateToTab(index),
       borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: isSelected ? 16 : 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.emeraldPrimary.withValues(alpha: 0.10) : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isSelected ? selectedIcon : unselectedIcon,
-              size: 20,
-              color: isSelected ? AppTheme.emeraldPrimary : AppTheme.textMuted,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: AppTypography.style(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.emeraldPrimary,
-                ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.emeraldPrimary.withValues(alpha: 0.12) : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
+              child: Icon(
+                isSelected ? selectedIcon : unselectedIcon,
+                size: 22,
+                color: isSelected ? AppTheme.emeraldPrimary : AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: AppTypography.style(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AppTheme.emeraldPrimary : AppTheme.textMuted,
+                letterSpacing: -0.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
