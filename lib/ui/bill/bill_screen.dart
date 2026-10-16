@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
 import 'tariff_settings_dialog.dart';
+import '../widgets/smooth_entrance.dart';
 
 class BillScreen extends StatefulWidget {
   const BillScreen({super.key});
@@ -75,12 +76,15 @@ class _BillScreenState extends State<BillScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Hero Estimated Bill Card with Solar Net Metering
-            Container(
+            SmoothEntrance(
+              delayMs: 0,
+              child: Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -216,10 +220,13 @@ class _BillScreenState extends State<BillScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 14),
 
-            // Net Metering Summary Pill
-            Container(
+          // Net Metering Summary Pill
+          SmoothEntrance(
+            delayMs: 60,
+            child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: balance.isSurplus ? const Color(0xFFF0FDF4) : const Color(0xFFEFF6FF),
@@ -269,10 +276,13 @@ class _BillScreenState extends State<BillScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 14),
 
-            // Actual Bill Comparison & Variance Card
-            Container(
+          // Actual Bill Comparison & Variance Card
+          SmoothEntrance(
+            delayMs: 120,
+            child: Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -395,10 +405,13 @@ class _BillScreenState extends State<BillScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 14),
 
-            // Itemized Bill Components
-            Container(
+          // Itemized Bill Components
+          SmoothEntrance(
+            delayMs: 180,
+            child: Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -466,11 +479,14 @@ class _BillScreenState extends State<BillScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 14),
 
-            // Slab Distribution Breakdown Table
-            if (tariff.type == TariffType.tieredSlab && bill.slabBreakdown.isNotEmpty) ...[
-              Container(
+          // Slab Distribution Breakdown Table
+          if (tariff.type == TariffType.tieredSlab && bill.slabBreakdown.isNotEmpty) ...[
+            SmoothEntrance(
+              delayMs: 240,
+              child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -554,8 +570,9 @@ class _BillScreenState extends State<BillScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
+            const SizedBox(height: 24),
+          ],
           ],
         ),
       ),

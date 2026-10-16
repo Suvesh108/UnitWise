@@ -9,6 +9,7 @@ import '../../domain/solar_calculator.dart';
 import '../../providers/energy_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../appliances/auto_detect_dialog.dart';
+import '../widgets/smooth_entrance.dart';
 import 'widgets/energy_donut_chart.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -33,40 +34,55 @@ class DashboardScreen extends StatelessWidget {
           await settings.refreshDeviceStats();
         },
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Hero Animated Donut Graph Card
-              EnergyDonutChart(
-                solarKwh: balance.solarMonthlyKwh,
-                loadKwh: balance.applianceMonthlyKwh,
-                netKwh: balance.netBalanceKwh,
-                isSurplus: balance.isSurplus,
-                categoryResults: summary.categoryResults,
-                currency: currency,
-                onNavigateSolar: () => onNavigateTab(3),
-                onNavigateAppliances: () => onNavigateTab(1),
+              SmoothEntrance(
+                delayMs: 0,
+                child: EnergyDonutChart(
+                  solarKwh: balance.solarMonthlyKwh,
+                  loadKwh: balance.applianceMonthlyKwh,
+                  netKwh: balance.netBalanceKwh,
+                  isSurplus: balance.isSurplus,
+                  categoryResults: summary.categoryResults,
+                  currency: currency,
+                  onNavigateSolar: () => onNavigateTab(3),
+                  onNavigateAppliances: () => onNavigateTab(1),
+                ),
               ),
               const SizedBox(height: 14),
 
               // 2. Compact Auto-Discovery Banner (Clean Slate)
               if (summary.applianceResults.isEmpty) ...[
-                _buildAutoDetectBanner(context),
+                SmoothEntrance(
+                  delayMs: 40,
+                  child: _buildAutoDetectBanner(context),
+                ),
                 const SizedBox(height: 14),
               ],
 
               // 3. Ergonomic Minimal Quick Action Dock
-              _buildQuickActions(context),
+              SmoothEntrance(
+                delayMs: 80,
+                child: _buildQuickActions(context),
+              ),
               const SizedBox(height: 14),
 
               // 4. Clean 2-Card Metrics Row
-              _buildPrimaryMetrics(context, summary, balance, currency),
+              SmoothEntrance(
+                delayMs: 120,
+                child: _buildPrimaryMetrics(context, summary, balance, currency),
+              ),
               const SizedBox(height: 16),
 
               // 5. Minimalist Top Consuming Appliances
-              _buildTopAppliances(context, summary, energy, currency),
+              SmoothEntrance(
+                delayMs: 160,
+                child: _buildTopAppliances(context, summary, energy, currency),
+              ),
               const SizedBox(height: 24),
             ],
           ),

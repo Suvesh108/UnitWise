@@ -212,7 +212,7 @@ class NativeChannel {
       latestVersion: AppConstants.appVersion,
       latestBuild: AppConstants.appBuild,
       releaseDate: AppConstants.releaseDate,
-      releaseNotes: '• Multi-property local management\n• Dynamic OTA live update engine\n• Minimalist UI with Donut Graph',
+      releaseNotes: '• Real live network auto-detection for smart plugs\n• Fluid spring-eased animations across all sections\n• Streamlined Settings\n• Multi-property isolation',
       fileSizeMb: 15.6,
       downloadUrl: AppConstants.releaseApkUrl,
     );

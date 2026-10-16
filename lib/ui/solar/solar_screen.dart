@@ -7,6 +7,7 @@ import '../../domain/solar_calculator.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
+import '../widgets/smooth_entrance.dart';
 
 class SolarScreen extends StatefulWidget {
   const SolarScreen({super.key});
@@ -93,28 +94,44 @@ class _SolarScreenState extends State<SolarScreen> {
         ),
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Outcome Diagnosis Banner
-            _buildNetOutcomeBanner(context, balance, currency),
+            SmoothEntrance(
+              delayMs: 0,
+              child: _buildNetOutcomeBanner(context, balance, currency),
+            ),
             const SizedBox(height: 16),
 
             // 3. Solar Generation Input Section (with Volts x Amps, Daily Units, kW)
-            _buildSolarInputSection(context, energy, solar.peakSunHours, solar.performanceRatio),
+            SmoothEntrance(
+              delayMs: 60,
+              child: _buildSolarInputSection(context, energy, solar.peakSunHours, solar.performanceRatio),
+            ),
             const SizedBox(height: 16),
 
             // 4. Household Appliance Load Sync / Custom Load
-            _buildApplianceLoadSyncSection(context, energy, summary),
+            SmoothEntrance(
+              delayMs: 120,
+              child: _buildApplianceLoadSyncSection(context, energy, summary),
+            ),
             const SizedBox(height: 16),
 
             // 5. Before vs After Financial Bento Grid
-            _buildNetFinancialGrid(context, balance, currency),
+            SmoothEntrance(
+              delayMs: 180,
+              child: _buildNetFinancialGrid(context, balance, currency),
+            ),
             const SizedBox(height: 16),
 
             // 6. Itemized Net Metering & Feed-in Audit Table
-            _buildNetAuditTable(context, energy, solar, balance, currency),
+            SmoothEntrance(
+              delayMs: 240,
+              child: _buildNetAuditTable(context, energy, solar, balance, currency),
+            ),
             const SizedBox(height: 28),
           ],
         ),

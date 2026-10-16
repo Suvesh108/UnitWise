@@ -13,6 +13,7 @@ import '../../core/native/native_channel.dart';
 import 'edit_appliance_bottom_sheet.dart';
 import 'add_appliance_dialog.dart';
 import 'auto_detect_dialog.dart';
+import '../widgets/smooth_entrance.dart';
 
 class AppliancesScreen extends StatefulWidget {
   const AppliancesScreen({super.key});
@@ -265,6 +266,7 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
     }
 
     return ListView.builder(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
       itemBuilder: (context, idx) {
@@ -275,126 +277,129 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
             .where((a) => a.templateId == template.id)
             .fold(0, (sum, a) => sum + a.quantity);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppTheme.borderSubtle),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: catColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
+        return SmoothEntrance(
+          delayMs: (idx * 25).clamp(0, 300),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppTheme.borderSubtle),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: catColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Icon(Formatters.getCategoryIcon(template.category), color: catColor, size: 20),
+                  ),
                 ),
-                child: Center(
-                  child: Icon(Formatters.getCategoryIcon(template.category), color: catColor, size: 20),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            template.name,
-                            style: AppTypography.style(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppTheme.textDark,
-                            ),
-                          ),
-                        ),
-                        if (existingCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.emeraldPrimary.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              '$existingCount added',
+                              template.name,
                               style: AppTypography.style(
-                                fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.emeraldPrimary,
+                                fontSize: 14,
+                                color: AppTheme.textDark,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      template.description,
-                      style: AppTypography.style(
-                        fontSize: 11.5,
-                        color: AppTheme.textMuted,
+                          if (existingCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.emeraldPrimary.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '$existingCount added',
+                                style: AppTypography.style(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.emeraldPrimary,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _buildBadge('${template.defaultWatts.toStringAsFixed(0)}W', Icons.bolt, Colors.amber.shade800),
-                        if (template.calculationType == CalculationType.dutyCycle)
-                          _buildBadge(
-                            '${(template.defaultDutyCycle * 100).toStringAsFixed(0)}% Inverter Duty',
-                            Icons.sync,
-                            AppTheme.electricCyan,
-                          )
-                        else if (template.calculationType == CalculationType.perCycle)
-                          _buildBadge(
-                            '${template.defaultKwhPerCycle} kWh/cycle',
-                            Icons.repeat,
-                            Colors.purple,
-                          )
-                        else
-                          _buildBadge('Continuous', Icons.power, AppTheme.emeraldPrimary),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        template.description,
+                        style: AppTypography.style(
+                          fontSize: 11.5,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _buildBadge('${template.defaultWatts.toStringAsFixed(0)}W', Icons.bolt, Colors.amber.shade800),
+                          if (template.calculationType == CalculationType.dutyCycle)
+                            _buildBadge(
+                              '${(template.defaultDutyCycle * 100).toStringAsFixed(0)}% Inverter Duty',
+                              Icons.sync,
+                              AppTheme.electricCyan,
+                            )
+                          else if (template.calculationType == CalculationType.perCycle)
+                            _buildBadge(
+                              '${template.defaultKwhPerCycle} kWh/cycle',
+                              Icons.repeat,
+                              Colors.purple,
+                            )
+                          else
+                            _buildBadge('Continuous', Icons.power, AppTheme.emeraldPrimary),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              FilledButton(
-                onPressed: () {
-                  NativeChannel.triggerHaptic();
-                  final newApp = HouseholdAppliance(
-                    id: 'app_${DateTime.now().millisecondsSinceEpoch}_${template.id}',
-                    householdId: energy.activeHousehold.id,
-                    templateId: template.id,
-                    name: template.name,
-                    category: template.category,
-                    calculationType: template.calculationType,
-                    quantity: 1,
-                    wattage: template.defaultWatts,
-                    dutyCycle: template.defaultDutyCycle,
-                    kwhPerCycle: template.defaultKwhPerCycle,
-                    hoursPerDay: template.defaultHoursPerDay,
-                    daysPerMonth: template.defaultDaysPerMonth,
-                    cyclesPerMonth: template.defaultCyclesPerMonth,
-                  );
-                  EditApplianceBottomSheet.show(context, appliance: newApp, isNew: true);
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.emeraldPrimary,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                const SizedBox(width: 10),
+                FilledButton(
+                  onPressed: () {
+                    NativeChannel.triggerHaptic();
+                    final newApp = HouseholdAppliance(
+                      id: 'app_${DateTime.now().millisecondsSinceEpoch}_${template.id}',
+                      householdId: energy.activeHousehold.id,
+                      templateId: template.id,
+                      name: template.name,
+                      category: template.category,
+                      calculationType: template.calculationType,
+                      quantity: 1,
+                      wattage: template.defaultWatts,
+                      dutyCycle: template.defaultDutyCycle,
+                      kwhPerCycle: template.defaultKwhPerCycle,
+                      hoursPerDay: template.defaultHoursPerDay,
+                      daysPerMonth: template.defaultDaysPerMonth,
+                      cyclesPerMonth: template.defaultCyclesPerMonth,
+                    );
+                    EditApplianceBottomSheet.show(context, appliance: newApp, isNew: true);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.emeraldPrimary,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Add'),
                 ),
-                child: const Text('Add'),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -446,15 +451,18 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
     final balance = energy.netEnergyBalance;
 
     return ListView.builder(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: items.length + 1,
       itemBuilder: (context, idx) {
         if (idx == 0) {
           // Top Net Energy Balance Header Pill
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
+          return SmoothEntrance(
+            delayMs: 0,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
               color: balance.isSurplus ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
@@ -483,20 +491,23 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
                 ),
               ],
             ),
-          );
-        }
-
-        final app = items[idx - 1];
-        final catColor = Formatters.getCategoryColor(app.category);
-        final monthlyKwh = EnergyCalculator.calculateApplianceMonthlyKwh(
-          app,
-          monthDays: energy.activeHousehold.daysInMonth,
+          ),
         );
-        final cost = monthlyKwh * rate;
-        final solarShare = energy.getApplianceSolarShare(app);
-        final isCovered = energy.isApplianceSolarCovered(app);
+      }
 
-        return Container(
+      final app = items[idx - 1];
+      final catColor = Formatters.getCategoryColor(app.category);
+      final monthlyKwh = EnergyCalculator.calculateApplianceMonthlyKwh(
+        app,
+        monthDays: energy.activeHousehold.daysInMonth,
+      );
+      final cost = monthlyKwh * rate;
+      final solarShare = energy.getApplianceSolarShare(app);
+      final isCovered = energy.isApplianceSolarCovered(app);
+
+      return SmoothEntrance(
+        delayMs: (idx * 25).clamp(0, 300),
+        child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -701,8 +712,9 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
               ),
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 

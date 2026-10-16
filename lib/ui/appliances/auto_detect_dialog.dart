@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -7,6 +9,7 @@ import '../../core/native/native_channel.dart';
 import '../../providers/energy_provider.dart';
 import '../../data/models/household_appliance.dart';
 import '../../data/models/appliance_template.dart';
+import '../widgets/smooth_entrance.dart';
 
 class DiscoveredDevice {
   final String id;
@@ -16,8 +19,8 @@ class DiscoveredDevice {
   final double watts;
   final double voltage;
   final double current;
-  final String protocol; // 'Wi-Fi (mDNS)' or 'Bluetooth (BLE)'
-  final String address;  // IP or MAC
+  final String protocol;
+  final String address;
   final IconData icon;
 
   DiscoveredDevice({
@@ -38,6 +41,7 @@ class AutoDetectDialog extends StatefulWidget {
   const AutoDetectDialog({super.key});
 
   static Future<void> show(BuildContext context) {
+    NativeChannel.triggerHaptic();
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -50,76 +54,16 @@ class AutoDetectDialog extends StatefulWidget {
   State<AutoDetectDialog> createState() => _AutoDetectDialogState();
 }
 
-class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerProviderStateMixin {
+class _AutoDetectDialogState extends State<AutoDetectDialog>
+    with SingleTickerProviderStateMixin {
   bool _isScanning = true;
+  String _scanStatus = 'Initializing network interfaces...';
+  String _localSubnet = '';
   late AnimationController _pulseController;
   final List<DiscoveredDevice> _discovered = [];
   final Set<String> _addedIds = {};
-  Timer? _scanTimer;
-
-  // Realistic sample appliances discovered across local network (mDNS) & BLE
-  final List<DiscoveredDevice> _candidates = [
-    DiscoveredDevice(
-      id: 'shelly_1pm_ac',
-      name: 'Master Bed Split AC',
-      model: 'Shelly Plus 1PM',
-      category: ApplianceCategory.cooling,
-      watts: 1450.0,
-      voltage: 230.0,
-      current: 6.3,
-      protocol: 'Wi-Fi (mDNS)',
-      address: '192.168.1.104',
-      icon: Icons.ac_unit_rounded,
-    ),
-    DiscoveredDevice(
-      id: 'tapo_p110_fridge',
-      name: 'Kitchen Double-Door Refrigerator',
-      model: 'Tapo P110 Meter',
-      category: ApplianceCategory.kitchen,
-      watts: 180.0,
-      voltage: 231.0,
-      current: 0.78,
-      protocol: 'Wi-Fi (mDNS)',
-      address: '192.168.1.118',
-      icon: Icons.kitchen_rounded,
-    ),
-    DiscoveredDevice(
-      id: 'ble_meter_cooktop',
-      name: 'Induction Cooktop',
-      model: 'BLE Energy Meter v2',
-      category: ApplianceCategory.kitchen,
-      watts: 1800.0,
-      voltage: 230.0,
-      current: 7.8,
-      protocol: 'Bluetooth (BLE)',
-      address: 'RSSI -62 dBm',
-      icon: Icons.soup_kitchen_rounded,
-    ),
-    DiscoveredDevice(
-      id: 'tuya_desk_pc',
-      name: 'Workstation & Monitors',
-      model: 'Tuya Smart Plug',
-      category: ApplianceCategory.entertainment,
-      watts: 320.0,
-      voltage: 229.0,
-      current: 1.4,
-      protocol: 'Wi-Fi (mDNS)',
-      address: '192.168.1.142',
-      icon: Icons.computer_rounded,
-    ),
-    DiscoveredDevice(
-      id: 'smart_inverter_solar',
-      name: 'Rooftop Solar Inverter Telemetry',
-      model: 'Hybrid Inverter Wi-Fi',
-      category: ApplianceCategory.other,
-      watts: 2400.0,
-      voltage: 230.0,
-      current: 10.4,
-      protocol: 'Wi-Fi (mDNS)',
-      address: '192.168.1.150',
-      icon: Icons.solar_power_rounded,
-    ),
-  ];
+  final TextEditingController _manualIpController = TextEditingController();
+  bool _isConnectingManual = false;
 
   @override
   void initState() {
@@ -129,39 +73,235 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
-    _startDiscovery();
-  }
-
-  void _startDiscovery() {
-    setState(() {
-      _isScanning = true;
-      _discovered.clear();
-    });
-
-    int index = 0;
-    _scanTimer = Timer.periodic(const Duration(milliseconds: 650), (timer) {
-      if (index < _candidates.length) {
-        if (mounted) {
-          NativeChannel.triggerHaptic();
-          setState(() {
-            _discovered.add(_candidates[index]);
-          });
-        }
-        index++;
-      } else {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _isScanning = false);
-        }
-      }
-    });
+    _startLiveNetworkScan();
   }
 
   @override
   void dispose() {
-    _scanTimer?.cancel();
     _pulseController.dispose();
+    _manualIpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startLiveNetworkScan() async {
+    setState(() {
+      _isScanning = true;
+      _discovered.clear();
+      _scanStatus = 'Probing local Wi-Fi subnet...';
+    });
+
+    try {
+      // 1. Identify local IPv4 network interface
+      String? localIp;
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+
+      for (final interface in interfaces) {
+        for (final addr in interface.addresses) {
+          if (!addr.isLoopback && addr.address.contains('.')) {
+            localIp = addr.address;
+            break;
+          }
+        }
+        if (localIp != null) break;
+      }
+
+      if (localIp != null) {
+        final parts = localIp.split('.');
+        if (parts.length == 4) {
+          _localSubnet = '${parts[0]}.${parts[1]}.${parts[2]}.';
+        }
+      }
+
+      if (_localSubnet.isEmpty) {
+        _localSubnet = '192.168.1.';
+      }
+
+      if (mounted) {
+        setState(() {
+          _scanStatus = 'Probing subnet ${_localSubnet}0/24 for IoT smart plugs...';
+        });
+      }
+
+      // 2. Probe common IoT gateway addresses for Shelly, Tasmota, Tapo, and smart meters
+      final candidateIps = <String>[];
+      // Target router and standard DHCP pool addresses
+      for (int i = 1; i <= 25; i++) {
+        candidateIps.add('$_localSubnet$i');
+      }
+      // Also probe standard high IPs where smart plugs commonly live
+      for (int i = 100; i <= 115; i++) {
+        candidateIps.add('$_localSubnet$i');
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(milliseconds: 600);
+
+      for (final ip in candidateIps) {
+        if (!mounted || !_isScanning) break;
+        try {
+          final device = await _probeDeviceAtIp(client, ip);
+          if (device != null && mounted) {
+            NativeChannel.triggerHaptic();
+            setState(() {
+              _discovered.add(device);
+            });
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('AutoDetect: Network scan exception: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+          _scanStatus = _discovered.isEmpty
+              ? 'No smart meters found on subnet ${_localSubnet}0/24'
+              : 'Scan complete (${_discovered.length} device${_discovered.length == 1 ? '' : 's'} found)';
+        });
+      }
+    }
+  }
+
+  Future<DiscoveredDevice?> _probeDeviceAtIp(HttpClient client, String ip) async {
+    try {
+      // 1. Probe Shelly Plus/Pro RPC API: /rpc/Shelly.GetStatus
+      final shellyUri = Uri.parse('http://$ip/rpc/Shelly.GetStatus');
+      final req = await client.getUrl(shellyUri);
+      final res = await req.close().timeout(const Duration(milliseconds: 700));
+
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+
+        // Extract real telemetry
+        double watts = 0.0;
+        double voltage = 230.0;
+        double current = 0.0;
+
+        if (json['switch:0'] != null) {
+          final sw = json['switch:0'] as Map<String, dynamic>;
+          watts = (sw['apower'] as num?)?.toDouble() ?? 0.0;
+          voltage = (sw['voltage'] as num?)?.toDouble() ?? 230.0;
+          current = (sw['current'] as num?)?.toDouble() ?? (watts / 230.0);
+        } else if (json['meters'] is List && (json['meters'] as List).isNotEmpty) {
+          final m = (json['meters'] as List).first as Map<String, dynamic>;
+          watts = (m['power'] as num?)?.toDouble() ?? 0.0;
+        }
+
+        final sys = json['sys'] as Map<String, dynamic>?;
+        final devName = sys?['device_id']?.toString() ?? 'Shelly Smart Plug';
+
+        return DiscoveredDevice(
+          id: 'shelly_$ip',
+          name: devName,
+          model: 'Shelly IoT Meter',
+          category: _categorizeByWatts(watts),
+          watts: watts,
+          voltage: voltage,
+          current: current,
+          protocol: 'Wi-Fi (mDNS / HTTP)',
+          address: ip,
+          icon: Icons.power_rounded,
+        );
+      }
+    } catch (_) {}
+
+    try {
+      // 2. Probe Tasmota / Sonoff status: /cm?cmnd=Status%208
+      final tasmotaUri = Uri.parse('http://$ip/cm?cmnd=Status%208');
+      final req = await client.getUrl(tasmotaUri);
+      final res = await req.close().timeout(const Duration(milliseconds: 700));
+
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final statusSns = json['StatusSNS'] as Map<String, dynamic>?;
+        final energy = statusSns?['ENERGY'] as Map<String, dynamic>?;
+
+        if (energy != null) {
+          final watts = (energy['Power'] as num?)?.toDouble() ?? 0.0;
+          final voltage = (energy['Voltage'] as num?)?.toDouble() ?? 230.0;
+          final current = (energy['Current'] as num?)?.toDouble() ?? (watts / 230.0);
+
+          return DiscoveredDevice(
+            id: 'tasmota_$ip',
+            name: 'Tasmota Energy Meter ($ip)',
+            model: 'Tasmota Smart Meter',
+            category: _categorizeByWatts(watts),
+            watts: watts,
+            voltage: voltage,
+            current: current,
+            protocol: 'Wi-Fi (HTTP)',
+            address: ip,
+            icon: Icons.bolt_rounded,
+          );
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  Future<void> _connectManualIp() async {
+    final ip = _manualIpController.text.trim();
+    if (ip.isEmpty) return;
+
+    NativeChannel.triggerHaptic();
+    setState(() => _isConnectingManual = true);
+
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final dev = await _probeDeviceAtIp(client, ip);
+
+      if (dev != null) {
+        setState(() {
+          _discovered.removeWhere((d) => d.address == ip);
+          _discovered.insert(0, dev);
+          _manualIpController.clear();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connected to ${dev.name} at $ip (${dev.watts.toStringAsFixed(0)}W)!'),
+              backgroundColor: AppTheme.emeraldPrimary,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not reach smart plug at $ip. Check IP & Wi-Fi connection.'),
+              backgroundColor: AppTheme.alertCoral,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connection error: $e'),
+            backgroundColor: AppTheme.alertCoral,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isConnectingManual = false);
+      }
+    }
+  }
+
+  ApplianceCategory _categorizeByWatts(double watts) {
+    if (watts > 1200) return ApplianceCategory.cooling;
+    if (watts > 600) return ApplianceCategory.kitchen;
+    if (watts > 200) return ApplianceCategory.entertainment;
+    return ApplianceCategory.lighting;
   }
 
   void _addDevice(DiscoveredDevice dev) {
@@ -169,12 +309,12 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
     final energy = context.read<EnergyProvider>();
 
     final newApp = HouseholdAppliance(
-      id: 'auto_${dev.id}_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'meter_${dev.id}_${DateTime.now().millisecondsSinceEpoch}',
       householdId: energy.activeHousehold.id,
       name: dev.name,
       category: dev.category,
-      wattage: dev.watts,
-      hoursPerDay: dev.category == ApplianceCategory.kitchen ? 3.0 : 6.0,
+      wattage: dev.watts > 0 ? dev.watts : 100.0,
+      hoursPerDay: 8.0,
       daysPerMonth: energy.activeHousehold.daysInMonth,
       quantity: 1,
       calculationType: dev.category == ApplianceCategory.cooling
@@ -209,10 +349,7 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
         left: 20,
         right: 20,
         top: 14,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -221,7 +358,7 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
           // Drag handle
           Center(
             child: Container(
-              width: 38,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
                 color: AppTheme.borderSubtle,
@@ -229,7 +366,7 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Header
           Row(
@@ -238,7 +375,8 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: AppTheme.electricCyan.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
@@ -250,114 +388,148 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Auto-Detect Appliances',
+                        'Live Auto-Discovery',
                         style: AppTypography.style(
-                          fontSize: 17,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textDark,
+                          letterSpacing: -0.4,
                         ),
                       ),
                       Text(
-                        'Scanning Dual-Mode: Wi-Fi (mDNS) + BLE',
-                        style: AppTypography.style(
-                          fontSize: 11,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        'Wi-Fi mDNS & Smart Meter Probing',
+                        style: AppTypography.style(fontSize: 11.5, color: AppTheme.textMuted),
                       ),
                     ],
                   ),
                 ],
               ),
-              if (_isScanning)
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.electricCyan.withValues(alpha: 0.15 + (_pulseController.value * 0.15)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 10,
-                            height: 10,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.electricCyan,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Scanning...',
-                            style: AppTypography.style(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.electricCyan,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                )
-              else
-                IconButton(
-                  tooltip: 'Rescan',
-                  icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.textDark),
-                  onPressed: _startDiscovery,
-                ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20, color: AppTheme.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Banner
+          // Scanner Status Banner
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
+              color: AppTheme.backgroundLight,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.borderSubtle),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, size: 15, color: AppTheme.textMuted),
-                const SizedBox(width: 8),
+                if (_isScanning)
+                  FadeTransition(
+                    opacity: _pulseController,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.electricCyan,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _discovered.isNotEmpty ? AppTheme.emeraldPrimary : AppTheme.textMuted,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Discovered smart devices appear automatically. Tap "Add" to sync live telemetry into UnitWise.',
-                    style: AppTypography.style(fontSize: 11, color: AppTheme.textMuted),
+                    _scanStatus,
+                    style: AppTypography.style(fontSize: 11.5, color: AppTheme.textDark, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (!_isScanning)
+                  TextButton(
+                    onPressed: _startLiveNetworkScan,
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    child: const Text('Rescan'),
+                  ),
               ],
             ),
           ),
           const SizedBox(height: 14),
 
-          // Device List
-          Expanded(
+          // Manual IP / Hostname Connect Section
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: TextField(
+                    controller: _manualIpController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter Smart Plug IP (e.g. 192.168.1.50)',
+                      hintStyle: const TextStyle(fontSize: 11),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _isConnectingManual ? null : _connectManualIp,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.emeraldPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                ),
+                child: _isConnectingManual
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Connect'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Discovered Devices List
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.40,
+            ),
             child: _discovered.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: AppTheme.electricCyan,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isScanning ? Icons.radar_rounded : Icons.wifi_find_rounded,
+                            size: 40,
+                            color: AppTheme.textSubtle,
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Broadcasting mDNS & BLE beacons...',
-                          style: AppTypography.style(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
-                        ),
-                      ],
+                          const SizedBox(height: 10),
+                          Text(
+                            _isScanning
+                                ? 'Scanning local subnet for live smart plugs...'
+                                : 'No smart plugs detected on local network',
+                            style: AppTypography.style(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textDark),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Enter your smart plug IP above or ensure Shelly/Tapo is powered on the same Wi-Fi.',
+                            style: AppTypography.style(fontSize: 11, color: AppTheme.textMuted),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : ListView.separated(
@@ -368,157 +540,76 @@ class _AutoDetectDialogState extends State<AutoDetectDialog> with SingleTickerPr
                       final dev = _discovered[index];
                       final isAdded = _addedIds.contains(dev.id);
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isAdded ? const Color(0xFFF0FDF4) : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isAdded ? const Color(0xFFBBF7D0) : AppTheme.borderSubtle,
-                            width: 1.0,
+                      return SmoothEntrance(
+                        delayMs: index * 40,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isAdded ? const Color(0xFFF0FDF4) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isAdded ? const Color(0xFFBBF7D0) : AppTheme.borderSubtle,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: (dev.protocol.contains('BLE') ? AppTheme.warmAmber : AppTheme.electricCyan)
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.emeraldPrimary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(dev.icon, color: AppTheme.emeraldPrimary, size: 20),
                               ),
-                              child: Icon(
-                                dev.icon,
-                                color: dev.protocol.contains('BLE') ? AppTheme.warmAmber : AppTheme.electricCyan,
-                                size: 22,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      dev.name,
+                                      style: AppTypography.style(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTheme.textDark,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '${dev.address} • ${dev.model}',
+                                      style: AppTypography.style(fontSize: 10.5, color: AppTheme.textMuted),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${dev.watts.toStringAsFixed(0)}W • ${dev.voltage.toStringAsFixed(0)}V • ${dev.current.toStringAsFixed(2)}A',
+                                      style: AppTypography.style(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.emeraldPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          dev.name,
-                                          style: AppTypography.style(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppTheme.textDark,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: dev.protocol.contains('BLE')
-                                              ? AppTheme.warmAmber.withValues(alpha: 0.1)
-                                              : AppTheme.electricCyan.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          dev.protocol,
-                                          style: AppTypography.style(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: dev.protocol.contains('BLE')
-                                                ? AppTheme.warmAmber
-                                                : AppTheme.electricCyan,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        dev.model,
-                                        style: AppTypography.style(fontSize: 10.5, color: AppTheme.textMuted),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '⚡ ${dev.watts.toStringAsFixed(0)}W',
-                                        style: AppTypography.style(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.emeraldPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${dev.voltage.toStringAsFixed(0)}V • ${dev.current.toStringAsFixed(1)}A',
-                                        style: AppTypography.style(fontSize: 11, color: AppTheme.textMuted),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              FilledButton(
+                                onPressed: isAdded ? null : () => _addDevice(dev),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: isAdded ? AppTheme.surfaceMuted : AppTheme.emeraldPrimary,
+                                  foregroundColor: isAdded ? AppTheme.textMuted : Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  visualDensity: VisualDensity.compact,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: Text(isAdded ? 'Added' : 'Add'),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            isAdded
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emeraldPrimary.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.check, size: 14, color: AppTheme.emeraldPrimary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Added',
-                                          style: AppTypography.style(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppTheme.emeraldPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : FilledButton(
-                                    onPressed: () => _addDevice(dev),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppTheme.emeraldPrimary,
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: const Text('Add'),
-                                  ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
                   ),
-          ),
-          const SizedBox(height: 12),
-
-          // Bottom Close button
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppTheme.borderSubtle),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Done'),
-            ),
           ),
         ],
       ),

@@ -145,20 +145,20 @@ class MainActivity : FlutterActivity() {
                     null
                 }
 
-                val currentVersion = pInfo?.versionName ?: "0.0.5"
+                val currentVersion = pInfo?.versionName ?: "0.0.6"
                 val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    pInfo?.longVersionCode?.toInt() ?: 5
+                    pInfo?.longVersionCode?.toInt() ?: 6
                 } else {
                     @Suppress("DEPRECATION")
-                    pInfo?.versionCode ?: 5
+                    pInfo?.versionCode ?: 6
                 }
 
-                var latestVersion = "0.0.5"
-                var latestBuild = 5
+                var latestVersion = "0.0.6"
+                var latestBuild = 6
                 var releaseDate = "October 2026"
-                var releaseNotes = "• Multi-property local management\n• Dynamic OTA live update engine\n• Minimalist UI with Donut Graph"
+                var releaseNotes = "• Real live network auto-detection for smart plugs\n• Fluid spring-eased animations across all sections\n• Streamlined Settings\n• Multi-property isolation"
                 var fileSizeMb = 15.6
-                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.5/unitwise-v0.0.5.apk"
+                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.6/unitwise-v0.0.6.apk"
 
                 // 1. Live network query to GitHub Releases API
                 try {
