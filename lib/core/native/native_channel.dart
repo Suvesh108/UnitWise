@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_constants.dart';
@@ -114,8 +116,83 @@ class NativeChannel {
     }
   }
 
-  /// Checks for available in-app updates via Kotlin platform channel
+  static bool isVersionNewer(String latest, String current) {
+    try {
+      final latestClean = latest.replaceAll('v', '').trim();
+      final currentClean = current.replaceAll('v', '').trim();
+      final latestParts = latestClean.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      final currentParts = currentClean.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      final maxLen = latestParts.length > currentParts.length ? latestParts.length : currentParts.length;
+      for (int i = 0; i < maxLen; i++) {
+        final l = i < latestParts.length ? latestParts[i] : 0;
+        final c = i < currentParts.length ? currentParts[i] : 0;
+        if (l > c) return true;
+        if (l < c) return false;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Checks for available in-app updates via live GitHub REST API & Kotlin platform channel
   static Future<UpdateInfo> checkForUpdate() async {
+    // 1. Direct live online check against GitHub Releases API
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 6);
+      final request = await client.getUrl(
+        Uri.parse('https://api.github.com/repos/Suvesh108/UnitWise/releases/latest'),
+      );
+      request.headers.set('User-Agent', 'UnitWise-App');
+      request.headers.set('Accept', 'application/vnd.github.v3+json');
+      final response = await request.close().timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final responseBody = await response.transform(utf8.decoder).join();
+        final data = jsonDecode(responseBody) as Map<String, dynamic>;
+        final rawTag = data['tag_name']?.toString() ?? '';
+        final latestVersion = rawTag.replaceAll('v', '').trim();
+        final currentVersion = AppConstants.appVersion;
+
+        final hasUpdate = isVersionNewer(latestVersion, currentVersion);
+
+        String downloadUrl = AppConstants.releaseApkUrl;
+        double fileSizeMb = 15.6;
+        final assets = data['assets'] as List<dynamic>?;
+        if (assets != null && assets.isNotEmpty) {
+          final apkAsset = assets.firstWhere(
+            (a) => a['name']?.toString().endsWith('.apk') == true,
+            orElse: () => assets.first,
+          );
+          downloadUrl = apkAsset['browser_download_url']?.toString() ?? downloadUrl;
+          final sizeBytes = (apkAsset['size'] as num?)?.toDouble() ?? 0;
+          if (sizeBytes > 0) {
+            fileSizeMb = double.parse((sizeBytes / (1024 * 1024)).toStringAsFixed(1));
+          }
+        }
+
+        final releaseNotes = data['body']?.toString() ?? '• Latest enhancements, bug fixes, and performance updates.';
+        final publishedAt = data['published_at']?.toString();
+        final releaseDate = (publishedAt != null && publishedAt.length >= 10)
+            ? publishedAt.substring(0, 10)
+            : AppConstants.releaseDate;
+
+        return UpdateInfo(
+          hasUpdate: hasUpdate,
+          currentVersion: currentVersion,
+          currentBuild: AppConstants.appBuild,
+          latestVersion: latestVersion.isNotEmpty ? latestVersion : AppConstants.appVersion,
+          latestBuild: int.tryParse(latestVersion.split('.').last) ?? AppConstants.appBuild,
+          releaseDate: releaseDate,
+          releaseNotes: releaseNotes,
+          fileSizeMb: fileSizeMb,
+          downloadUrl: downloadUrl,
+        );
+      }
+    } catch (e) {
+      debugPrint('NativeChannel: Online GitHub release check note: $e');
+    }
+
+    // 2. Query Kotlin platform channel
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('checkForUpdate');
@@ -124,10 +201,10 @@ class NativeChannel {
         }
       }
     } catch (e) {
-      debugPrint('NativeChannel: checkForUpdate error: $e');
+      debugPrint('NativeChannel: checkForUpdate platform channel error: $e');
     }
 
-    // Default verified update manifest for demo / fallback
+    // 3. Fallback verified update manifest
     return const UpdateInfo(
       hasUpdate: false,
       currentVersion: AppConstants.appVersion,
@@ -135,7 +212,7 @@ class NativeChannel {
       latestVersion: AppConstants.appVersion,
       latestBuild: AppConstants.appBuild,
       releaseDate: AppConstants.releaseDate,
-      releaseNotes: '• Modern Donut Graph on the Dashboard with Power Flow and Category breakdown\n• Clean, minimalist UI/UX with zero unnecessary text\n• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery\n• Ergonomic navigation and responsive layout',
+      releaseNotes: '• Multi-property local management\n• Dynamic OTA live update engine\n• Minimalist UI with Donut Graph',
       fileSizeMb: 15.6,
       downloadUrl: AppConstants.releaseApkUrl,
     );

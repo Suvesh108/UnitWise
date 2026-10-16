@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:unitwise/data/repositories/energy_repository.dart';
+import 'package:unitwise/data/models/household.dart';
 import 'package:unitwise/providers/energy_provider.dart';
 import 'package:unitwise/providers/settings_provider.dart';
 import 'package:unitwise/core/native/native_channel.dart';
@@ -79,13 +80,40 @@ void main() {
     final mockUpdate = UpdateInfo.fromMap({
       'hasUpdate': true,
       'currentVersion': '0.0.3',
-      'latestVersion': '0.0.4',
-      'latestBuild': 4,
+      'latestVersion': '0.0.5',
+      'latestBuild': 5,
       'releaseNotes': 'New feature release',
-      'downloadUrl': 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.4/unitwise-v0.0.4.apk',
+      'downloadUrl': 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.5/unitwise-v0.0.5.apk',
       'fileSizeMb': 16.2,
     });
     expect(mockUpdate.hasUpdate, true);
-    expect(mockUpdate.latestVersion, '0.0.4');
+    expect(mockUpdate.latestVersion, '0.0.5');
+
+    // Test semantic version comparator
+    expect(NativeChannel.isVersionNewer('0.0.5', '0.0.3'), true);
+    expect(NativeChannel.isVersionNewer('0.0.4', '0.0.3'), true);
+    expect(NativeChannel.isVersionNewer('0.0.5', '0.0.5'), false);
+    expect(NativeChannel.isVersionNewer('0.0.3', '0.0.5'), false);
+  });
+
+  test('EnergyProvider multi-property management isolates data cleanly', () async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = await EnergyRepository.init();
+    final energy = EnergyProvider(repo);
+
+    expect(energy.households.length, 1);
+    expect(energy.activeHousehold.propertyType, PropertyType.residence);
+
+    // Create a new Shop property
+    await energy.createProperty(
+      name: 'Downtown Retail Store',
+      propertyType: PropertyType.shop,
+      location: 'Commercial Market',
+    );
+
+    expect(energy.households.length, 2);
+    expect(energy.activeHousehold.name, 'Downtown Retail Store');
+    expect(energy.activeHousehold.propertyType, PropertyType.shop);
+    expect(energy.currentAppliances.length, 0); // Isolated clean slate
   });
 }

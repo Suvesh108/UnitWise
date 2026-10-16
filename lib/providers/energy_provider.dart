@@ -51,6 +51,7 @@ class EnergyProvider extends ChangeNotifier {
       orElse: () => Household(
         id: _activeHouseholdId,
         name: 'Primary Residence',
+        propertyType: PropertyType.residence,
         createdAt: DateTime.now(),
       ),
     );
@@ -60,8 +61,9 @@ class EnergyProvider extends ChangeNotifier {
     return _allAppliances.where((a) => a.householdId == _activeHouseholdId).toList();
   }
 
-  TariffConfig get tariff => _tariff;
-  SolarConfig get solar => _solar;
+  // Property-scoped Tariff & Solar (prevents cross-property mixing)
+  TariffConfig get tariff => activeHousehold.tariffConfig ?? _tariff;
+  SolarConfig get solar => activeHousehold.solarConfig ?? _solar;
 
   // --- Calculations ---
   HouseholdConsumptionSummary get consumptionSummary {
@@ -74,7 +76,7 @@ class EnergyProvider extends ChangeNotifier {
   BillCalculationResult get billResult {
     return BillCalculator.calculateBill(
       totalUnitsKwh: consumptionSummary.totalMonthlyKwh,
-      tariff: _tariff,
+      tariff: tariff,
       actualBill: activeHousehold.actualLastMonthBill,
     );
   }
@@ -84,8 +86,8 @@ class EnergyProvider extends ChangeNotifier {
       monthlyConsumptionKwh: consumptionSummary.totalMonthlyKwh,
       effectiveRetailTariff: billResult.effectiveRatePerKwh > 0
           ? billResult.effectiveRatePerKwh
-          : _tariff.flatRatePerKwh,
-      config: _solar,
+          : tariff.flatRatePerKwh,
+      config: solar,
       monthDays: activeHousehold.daysInMonth,
     );
   }
@@ -96,14 +98,15 @@ class EnergyProvider extends ChangeNotifier {
   double _voltageVolts = 230.0;
   double _currentAmps = 10.0;
 
-  double? get customSolarGenerationKwh => _customSolarGenerationKwh;
+  double? get customSolarGenerationKwh => activeHousehold.customSolarKwh ?? _customSolarGenerationKwh;
   double? get customApplianceLoadKwh => _customApplianceLoadKwh;
-  double get voltageVolts => _voltageVolts;
-  double get currentAmps => _currentAmps;
+  double get voltageVolts => activeHousehold.inverterVoltage ?? _voltageVolts;
+  double get currentAmps => activeHousehold.inverterCurrent ?? _currentAmps;
 
   double get effectiveSolarMonthlyKwh {
-    if (_customSolarGenerationKwh != null) {
-      return _customSolarGenerationKwh!;
+    final custom = customSolarGenerationKwh;
+    if (custom != null) {
+      return custom;
     }
     return solarResult.monthlyGenerationKwh > 0
         ? solarResult.monthlyGenerationKwh
@@ -120,20 +123,21 @@ class EnergyProvider extends ChangeNotifier {
   NetEnergyBalance get netEnergyBalance {
     final rate = billResult.effectiveRatePerKwh > 0
         ? billResult.effectiveRatePerKwh
-        : _tariff.flatRatePerKwh;
+        : tariff.flatRatePerKwh;
     return SolarCalculator.calculateNetBalance(
       solarMonthlyKwh: effectiveSolarMonthlyKwh,
       applianceMonthlyKwh: effectiveApplianceMonthlyKwh,
       retailRatePerKwh: rate,
-      exportRatePerKwh: _solar.exportTariffPerKwh,
-      fixedCharges: _tariff.fixedCharge,
+      exportRatePerKwh: solar.exportTariffPerKwh,
+      fixedCharges: tariff.fixedCharge,
     );
   }
 
   Future<void> setCustomSolarGeneration(double? kwh) async {
     _customSolarGenerationKwh = kwh;
     await _repository.saveCustomSolarGeneration(kwh);
-    notifyListeners();
+    final updated = activeHousehold.copyWith(customSolarKwh: kwh);
+    await updateActiveHousehold(updated);
   }
 
   void setCustomApplianceLoad(double? kwh) {
@@ -146,14 +150,20 @@ class EnergyProvider extends ChangeNotifier {
     _currentAmps = current;
     await _repository.saveInverterVoltage(voltage);
     await _repository.saveInverterCurrent(current);
-    _customSolarGenerationKwh = SolarCalculator.calculateKwhFromElectricalSpecs(
+    final genKwh = SolarCalculator.calculateKwhFromElectricalSpecs(
       voltageVolts: voltage,
       currentAmps: current,
-      peakSunHours: _solar.peakSunHours,
+      peakSunHours: solar.peakSunHours,
       days: activeHousehold.daysInMonth,
     );
-    await _repository.saveCustomSolarGeneration(_customSolarGenerationKwh);
-    notifyListeners();
+    _customSolarGenerationKwh = genKwh;
+    await _repository.saveCustomSolarGeneration(genKwh);
+    final updated = activeHousehold.copyWith(
+      inverterVoltage: voltage,
+      inverterCurrent: current,
+      customSolarKwh: genKwh,
+    );
+    await updateActiveHousehold(updated);
   }
 
   Future<void> resetNetBalanceInputs() async {
@@ -164,7 +174,12 @@ class EnergyProvider extends ChangeNotifier {
     await _repository.saveCustomSolarGeneration(null);
     await _repository.saveInverterVoltage(230.0);
     await _repository.saveInverterCurrent(10.0);
-    notifyListeners();
+    final updated = activeHousehold.copyWith(
+      customSolarKwh: null,
+      inverterVoltage: 230.0,
+      inverterCurrent: 10.0,
+    );
+    await updateActiveHousehold(updated);
   }
 
   /// Calculates what percentage of total solar generation this appliance draws
@@ -223,16 +238,31 @@ class EnergyProvider extends ChangeNotifier {
   Future<void> updateTariff(TariffConfig newTariff) async {
     _tariff = newTariff;
     await _repository.saveTariff(newTariff);
-    notifyListeners();
+    final updated = activeHousehold.copyWith(tariffConfig: newTariff);
+    await updateActiveHousehold(updated);
   }
 
   Future<void> updateSolar(SolarConfig newSolar) async {
     _solar = newSolar;
     await _repository.saveSolar(newSolar);
-    notifyListeners();
+    final updated = activeHousehold.copyWith(solarConfig: newSolar);
+    await updateActiveHousehold(updated);
   }
 
-  // --- Household Actions ---
+  // --- Multi-Property Management ---
+  int getApplianceCountForHousehold(String householdId) {
+    return _allAppliances.where((a) => a.householdId == householdId).length;
+  }
+
+  double getMonthlyKwhForHousehold(String householdId) {
+    final apps = _allAppliances.where((a) => a.householdId == householdId).toList();
+    final h = _households.firstWhere(
+      (item) => item.id == householdId,
+      orElse: () => activeHousehold,
+    );
+    return EnergyCalculator.calculateHouseholdSummary(apps, monthDays: h.daysInMonth).totalMonthlyKwh;
+  }
+
   Future<void> updateActiveHousehold(Household updated) async {
     final idx = _households.indexWhere((h) => h.id == updated.id);
     if (idx != -1) {
@@ -242,28 +272,41 @@ class EnergyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> createHousehold(String name, String location, {int daysInMonth = 30}) async {
-    final id = 'household_${DateTime.now().millisecondsSinceEpoch}';
-    final newH = Household(
+  Future<void> createProperty({
+    required String name,
+    required PropertyType propertyType,
+    String location = 'Default Location',
+    int daysInMonth = 30,
+  }) async {
+    final id = 'prop_${DateTime.now().millisecondsSinceEpoch}';
+    final newProperty = Household(
       id: id,
       name: name,
       location: location,
+      propertyType: propertyType,
       daysInMonth: daysInMonth,
       createdAt: DateTime.now(),
+      tariffConfig: _tariff,
+      solarConfig: _solar,
     );
-    _households.add(newH);
+    _households.add(newProperty);
     await _repository.saveHouseholds(_households);
     await switchHousehold(id);
   }
 
+  Future<void> createHousehold(String name, String location, {int daysInMonth = 30, PropertyType propertyType = PropertyType.residence}) async {
+    await createProperty(name: name, propertyType: propertyType, location: location, daysInMonth: daysInMonth);
+  }
+
   Future<void> switchHousehold(String id) async {
+    if (_activeHouseholdId == id) return;
     _activeHouseholdId = id;
     await _repository.setActiveHouseholdId(id);
     notifyListeners();
   }
 
   Future<void> deleteHousehold(String id) async {
-    if (_households.length <= 1) return; // Keep at least one
+    if (_households.length <= 1) return; // Keep at least one property
     _households.removeWhere((h) => h.id == id);
     _allAppliances.removeWhere((a) => a.householdId == id);
     await _repository.saveHouseholds(_households);

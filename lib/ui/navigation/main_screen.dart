@@ -11,6 +11,7 @@ import '../bill/bill_screen.dart';
 import '../solar/solar_screen.dart';
 import '../reports/reports_screen.dart';
 import '../widgets/floating_onboarding_card.dart';
+import '../properties/property_switcher_sheet.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -90,77 +91,44 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
               actions: [
-                // Minimalist Household Chip Selector
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: PopupMenuButton<String>(
-                    tooltip: 'Switch Household',
-                    initialValue: energy.activeHouseholdId,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: const BoxDecoration(
-                              color: AppTheme.emeraldPrimary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 85),
-                            child: Text(
-                              energy.activeHousehold.name,
-                              style: AppTypography.style(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textDark,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textMuted),
-                        ],
-                      ),
+                // Minimalist Property Pill Selector
+                InkWell(
+                  onTap: () => PropertySwitcherSheet.show(context),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppTheme.borderSubtle),
                     ),
-                    itemBuilder: (ctx) => energy.households.map((h) {
-                      final isSelected = h.id == energy.activeHouseholdId;
-                      return PopupMenuItem<String>(
-                        value: h.id,
-                        child: Row(
-                          children: [
-                            Icon(
-                              isSelected ? Icons.check_circle : Icons.circle_outlined,
-                              size: 16,
-                              color: isSelected ? AppTheme.emeraldPrimary : AppTheme.textSubtle,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              h.name,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          energy.activeHousehold.propertyType.icon,
+                          size: 14,
+                          color: energy.activeHousehold.propertyType.color,
                         ),
-                      );
-                    }).toList(),
-                    onSelected: (id) {
-                      NativeChannel.triggerHaptic();
-                      energy.switchHousehold(id);
-                    },
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 90),
+                          child: Text(
+                            energy.activeHousehold.name,
+                            style: AppTypography.style(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textMuted),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),

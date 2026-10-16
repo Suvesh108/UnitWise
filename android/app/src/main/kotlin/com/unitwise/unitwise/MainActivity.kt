@@ -13,6 +13,9 @@ import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.os.Handler
+import android.os.Looper
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -48,12 +51,7 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "checkForUpdate" -> {
-                    try {
-                        val updateInfo = checkUpdateAvailable()
-                        result.success(updateInfo)
-                    } catch (e: Exception) {
-                        result.error("UPDATE_CHECK_ERROR", "Update check failed: ${e.message}", null)
-                    }
+                    checkUpdateAvailableAsync(result)
                 }
                 "startUpdateDownload" -> {
                     val downloadUrl = call.argument<String>("url") ?: ""
@@ -133,41 +131,102 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun checkUpdateAvailable(): Map<String, Any> {
-        val pInfo = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, 0)
+    private fun checkUpdateAvailableAsync(result: MethodChannel.Result) {
+        Thread {
+            try {
+                val pInfo = try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageManager.getPackageInfo(packageName, 0)
+                    }
+                } catch (_: Exception) {
+                    null
+                }
+
+                val currentVersion = pInfo?.versionName ?: "0.0.5"
+                val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    pInfo?.longVersionCode?.toInt() ?: 5
+                } else {
+                    @Suppress("DEPRECATION")
+                    pInfo?.versionCode ?: 5
+                }
+
+                var latestVersion = "0.0.5"
+                var latestBuild = 5
+                var releaseDate = "October 2026"
+                var releaseNotes = "• Multi-property local management\n• Dynamic OTA live update engine\n• Minimalist UI with Donut Graph"
+                var fileSizeMb = 15.6
+                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.5/unitwise-v0.0.5.apk"
+
+                // 1. Live network query to GitHub Releases API
+                try {
+                    val url = URL("https://api.github.com/repos/Suvesh108/UnitWise/releases/latest")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 8000
+                        readTimeout = 8000
+                        setRequestProperty("User-Agent", "UnitWise-App")
+                        setRequestProperty("Accept", "application/vnd.github.v3+json")
+                    }
+                    if (conn.responseCode == 200) {
+                        val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+                        val json = JSONObject(responseText)
+                        val tagName = json.optString("tag_name", "").replace("v", "").trim()
+                        if (tagName.isNotEmpty()) {
+                            latestVersion = tagName
+                            latestBuild = tagName.split(".").lastOrNull()?.toIntOrNull() ?: 5
+                        }
+                        val body = json.optString("body", "")
+                        if (body.isNotEmpty()) {
+                            releaseNotes = body
+                        }
+                        val publishedAt = json.optString("published_at", "")
+                        if (publishedAt.length >= 10) {
+                            releaseDate = publishedAt.substring(0, 10)
+                        }
+                        val assets = json.optJSONArray("assets")
+                        if (assets != null && assets.length() > 0) {
+                            for (i in 0 until assets.length()) {
+                                val asset = assets.getJSONObject(i)
+                                val name = asset.optString("name", "")
+                                if (name.endsWith(".apk")) {
+                                    downloadUrl = asset.optString("browser_download_url", downloadUrl)
+                                    val size = asset.optLong("size", 0)
+                                    if (size > 0) {
+                                        fileSizeMb = ((size / (1024.0 * 1024.0)) * 10).toInt() / 10.0
+                                    }
+                                    break
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Fallback to local manifest on offline/network errors
+                }
+
+                val hasUpdate = isVersionNewer(latestVersion, currentVersion)
+                val updateMap = mapOf(
+                    "hasUpdate" to hasUpdate,
+                    "currentVersion" to currentVersion,
+                    "currentBuild" to currentBuild,
+                    "latestVersion" to latestVersion,
+                    "latestBuild" to latestBuild,
+                    "releaseDate" to releaseDate,
+                    "releaseNotes" to releaseNotes,
+                    "fileSizeMb" to fileSizeMb,
+                    "downloadUrl" to downloadUrl
+                )
+
+                Handler(Looper.getMainLooper()).post {
+                    result.success(updateMap)
+                }
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    result.error("UPDATE_CHECK_ERROR", "Update check failed: ${e.message}", null)
+                }
             }
-        } catch (_: Exception) {
-            null
-        }
-
-        val currentVersion = pInfo?.versionName ?: "0.0.4"
-        val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            pInfo?.longVersionCode?.toInt() ?: 4
-        } else {
-            @Suppress("DEPRECATION")
-            pInfo?.versionCode ?: 4
-        }
-
-        val latestVersion = "0.0.4"
-        val latestBuild = 4
-        val hasUpdate = isVersionNewer(latestVersion, currentVersion)
-
-        return mapOf(
-            "hasUpdate" to hasUpdate,
-            "currentVersion" to currentVersion,
-            "currentBuild" to currentBuild,
-            "latestVersion" to latestVersion,
-            "latestBuild" to latestBuild,
-            "releaseDate" to "October 2026",
-            "releaseNotes" to "• Sleek, modern Donut Graph on the Dashboard\n• Simplified, minimalistic UI/UX with zero unnecessary text\n• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery\n• Zero-overflow high visual density layout",
-            "fileSizeMb" to 15.6,
-            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.4/unitwise-v0.0.4.apk"
-        )
+        }.start()
     }
 
     private fun isVersionNewer(latest: String, current: String): Boolean {
