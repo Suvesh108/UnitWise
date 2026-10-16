@@ -145,16 +145,16 @@ class MainActivity : FlutterActivity() {
             null
         }
 
-        val currentVersion = pInfo?.versionName ?: "0.0.3"
+        val currentVersion = pInfo?.versionName ?: "0.0.4"
         val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            pInfo?.longVersionCode?.toInt() ?: 3
+            pInfo?.longVersionCode?.toInt() ?: 4
         } else {
             @Suppress("DEPRECATION")
-            pInfo?.versionCode ?: 3
+            pInfo?.versionCode ?: 4
         }
 
-        val latestVersion = "0.0.3"
-        val latestBuild = 3
+        val latestVersion = "0.0.4"
+        val latestBuild = 4
         val hasUpdate = isVersionNewer(latestVersion, currentVersion)
 
         return mapOf(
@@ -164,9 +164,9 @@ class MainActivity : FlutterActivity() {
             "latestVersion" to latestVersion,
             "latestBuild" to latestBuild,
             "releaseDate" to "October 2026",
-            "releaseNotes" to "• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery Appliance Scanner\n• Redesigned Dashboard with high-fidelity Power Balance Dial\n• 74dp ergonomic bottom navbar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Synchronized v0.0.3 internal package update engine",
-            "fileSizeMb" to 15.4,
-            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.3/unitwise-v0.0.3.apk"
+            "releaseNotes" to "• Sleek, modern Donut Graph on the Dashboard\n• Simplified, minimalistic UI/UX with zero unnecessary text\n• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery\n• Zero-overflow high visual density layout",
+            "fileSizeMb" to 15.6,
+            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.4/unitwise-v0.0.4.apk"
         )
     }
 

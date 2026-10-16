@@ -83,7 +83,7 @@ class _SolarScreenState extends State<SolarScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.backgroundLight,
         title: Text(
-          'Solar Energy Balance',
+          'Solar',
           style: AppTypography.style(
             fontSize: 20,
             fontWeight: FontWeight.w800,

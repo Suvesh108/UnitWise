@@ -50,7 +50,7 @@ class _BillScreenState extends State<BillScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.backgroundLight,
         title: Text(
-          'Bill Estimator & Net Metering',
+          'Billing',
           style: AppTypography.style(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -62,7 +62,7 @@ class _BillScreenState extends State<BillScreen> {
           TextButton.icon(
             icon: const Icon(Icons.tune_outlined, size: 16, color: AppTheme.emeraldPrimary),
             label: Text(
-              'Tariff Settings',
+              'Tariff',
               style: AppTypography.style(
                 fontWeight: FontWeight.w700,
                 fontSize: 12.5,

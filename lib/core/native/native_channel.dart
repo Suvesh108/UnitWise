@@ -135,8 +135,8 @@ class NativeChannel {
       latestVersion: AppConstants.appVersion,
       latestBuild: AppConstants.appBuild,
       releaseDate: AppConstants.releaseDate,
-      releaseNotes: '• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery Appliance Scanner\n• Overhauled Dashboard with high-fidelity Power Balance Dial\n• 74dp ergonomic bottom navbar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Synchronized v0.0.3 internal package update engine',
-      fileSizeMb: 15.4,
+      releaseNotes: '• Modern Donut Graph on the Dashboard with Power Flow and Category breakdown\n• Clean, minimalist UI/UX with zero unnecessary text\n• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery\n• Ergonomic navigation and responsive layout',
+      fileSizeMb: 15.6,
       downloadUrl: AppConstants.releaseApkUrl,
     );
   }

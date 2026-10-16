@@ -7,6 +7,7 @@ import 'package:unitwise/providers/energy_provider.dart';
 import 'package:unitwise/providers/settings_provider.dart';
 import 'package:unitwise/core/native/native_channel.dart';
 import 'package:unitwise/ui/widgets/floating_onboarding_card.dart';
+import 'package:unitwise/ui/dashboard/widgets/energy_donut_chart.dart';
 import 'package:unitwise/main.dart';
 
 void main() {
@@ -58,7 +59,8 @@ void main() {
     expect(settingsProvider.hasCompletedOnboarding, true);
     expect(find.byType(FloatingOnboardingCard), findsNothing);
 
-    // 4. Verify Dashboard displays clean slate with zero errors
+    // 4. Verify Dashboard displays clean slate with zero errors & Donut Graph
+    expect(find.byType(EnergyDonutChart), findsOneWidget);
     expect(find.textContaining('ENERGY BALANCE'), findsOneWidget);
     expect(find.text('ESTIMATED BILL'), findsOneWidget);
     expect(find.text('TOP CONSUMING DEVICES'), findsOneWidget);

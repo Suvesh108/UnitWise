@@ -51,7 +51,7 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
       appBar: AppBar(
         backgroundColor: AppTheme.backgroundLight,
         title: Text(
-          'Appliance Manager',
+          'Appliances',
           style: AppTypography.style(
             fontSize: 20,
             fontWeight: FontWeight.w800,
