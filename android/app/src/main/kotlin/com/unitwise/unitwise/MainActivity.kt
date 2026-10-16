@@ -145,25 +145,43 @@ class MainActivity : FlutterActivity() {
             null
         }
 
-        val currentVersion = pInfo?.versionName ?: "0.0.1"
+        val currentVersion = pInfo?.versionName ?: "0.0.3"
         val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            pInfo?.longVersionCode?.toInt() ?: 1
+            pInfo?.longVersionCode?.toInt() ?: 3
         } else {
             @Suppress("DEPRECATION")
-            pInfo?.versionCode ?: 1
+            pInfo?.versionCode ?: 3
         }
 
+        val latestVersion = "0.0.3"
+        val latestBuild = 3
+        val hasUpdate = isVersionNewer(latestVersion, currentVersion)
+
         return mapOf(
-            "hasUpdate" to true,
+            "hasUpdate" to hasUpdate,
             "currentVersion" to currentVersion,
             "currentBuild" to currentBuild,
-            "latestVersion" to "0.0.2",
-            "latestBuild" to 2,
+            "latestVersion" to latestVersion,
+            "latestBuild" to latestBuild,
             "releaseDate" to "October 2026",
-            "releaseNotes" to "• All-new high visual density Dashboard with Power Balance Dial\n• Modern 74dp bottom navigation bar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Real UnitWise Android launcher icon across all mipmap densities\n• Robust in-app OTA updater with direct GitHub Releases CDN streaming",
-            "fileSizeMb" to 15.2,
-            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.2/unitwise-v0.0.2.apk"
+            "releaseNotes" to "• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery Appliance Scanner\n• Redesigned Dashboard with high-fidelity Power Balance Dial\n• 74dp ergonomic bottom navbar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Synchronized v0.0.3 internal package update engine",
+            "fileSizeMb" to 15.4,
+            "downloadUrl" to "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.3/unitwise-v0.0.3.apk"
         )
+    }
+
+    private fun isVersionNewer(latest: String, current: String): Boolean {
+        try {
+            val latestParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
+            val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+            for (i in 0 until maxOf(latestParts.size, currentParts.size)) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
+            }
+        } catch (_: Exception) {}
+        return false
     }
 
     private fun downloadUpdateInternal(downloadUrl: String, version: String, result: MethodChannel.Result) {

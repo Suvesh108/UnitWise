@@ -4,6 +4,7 @@ import '../models/household.dart';
 import '../models/household_appliance.dart';
 import '../models/tariff_config.dart';
 import '../models/solar_config.dart';
+import '../../core/constants/app_constants.dart';
 
 class EnergyRepository {
   static const String _keyHouseholds = 'unitwise_households';
@@ -192,7 +193,7 @@ class EnergyRepository {
       'appliances': loadAppliances().map((a) => a.toJson()).toList(),
       'tariff': loadTariff().toJson(),
       'solar': loadSolar().toJson(),
-      'version': '0.0.1',
+      'version': AppConstants.appVersion,
       'exportedAt': DateTime.now().toIso8601String(),
     };
     return const JsonEncoder.withIndent('  ').convert(map);

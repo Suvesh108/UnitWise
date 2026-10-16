@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
 import 'pdf_preview_dialog.dart';
 import 'app_update_dialog.dart';
+import '../../core/constants/app_constants.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -601,7 +602,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'v0.0.1',
+                          'v${AppConstants.appVersion}',
                           style: AppTypography.style(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -742,7 +743,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Home Electricity & Rooftop Solar Sizing • v0.0.1',
+                    'Home Electricity & Rooftop Solar Sizing • v${AppConstants.appVersion}',
                     style: AppTypography.style(fontSize: 11.5, color: AppTheme.textMuted),
                   ),
                 ],

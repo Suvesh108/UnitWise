@@ -67,10 +67,23 @@ void main() {
 
   test('NativeChannel update check delivers internal OTA metadata', () async {
     final update = await NativeChannel.checkForUpdate();
-    expect(update.hasUpdate, true);
+    expect(update.currentVersion, isNotEmpty);
     expect(update.latestVersion, isNotEmpty);
     expect(update.downloadUrl, isNotEmpty);
     expect(update.fileSizeMb, greaterThan(0));
     expect(update.releaseNotes, isNotEmpty);
+
+    // Verify UpdateInfo deserialization logic
+    final mockUpdate = UpdateInfo.fromMap({
+      'hasUpdate': true,
+      'currentVersion': '0.0.3',
+      'latestVersion': '0.0.4',
+      'latestBuild': 4,
+      'releaseNotes': 'New feature release',
+      'downloadUrl': 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.4/unitwise-v0.0.4.apk',
+      'fileSizeMb': 16.2,
+    });
+    expect(mockUpdate.hasUpdate, true);
+    expect(mockUpdate.latestVersion, '0.0.4');
   });
 }

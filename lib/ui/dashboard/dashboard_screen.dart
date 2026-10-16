@@ -9,7 +9,7 @@ import '../../domain/energy_calculator.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
-import '../reports/reports_screen.dart';
+import '../appliances/auto_detect_dialog.dart';
 
 class DashboardScreen extends StatelessWidget {
   final Function(int) onNavigateTab;
@@ -41,6 +41,12 @@ class DashboardScreen extends StatelessWidget {
               // 1. Hero Power Arc & Live Energy Balance Card
               _buildHeroPowerDial(context, balance, summary, currency),
               const SizedBox(height: 14),
+
+              // Smart Auto-Detect Discovery Card if clean slate
+              if (summary.applianceResults.isEmpty) ...[
+                _buildAutoDetectBanner(context),
+                const SizedBox(height: 14),
+              ],
 
               // 2. Bento Stat Grid (2x2)
               _buildBentoGrid(context, summary, balance, currency),
@@ -166,13 +172,13 @@ class DashboardScreen extends StatelessWidget {
           // Central Power Dial Visualization
           Center(
             child: SizedBox(
-              width: 170,
-              height: 130,
+              width: 200,
+              height: 135,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   CustomPaint(
-                    size: const Size(170, 130),
+                    size: const Size(200, 135),
                     painter: _PowerDialPainter(
                       solarKwh: solarKwh,
                       loadKwh: loadKwh,
@@ -180,18 +186,22 @@ class DashboardScreen extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    bottom: 12,
+                    bottom: 10,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            '${isSurplus ? '+' : ''}${netKwh.toStringAsFixed(0)}',
+                            (solarKwh == 0 && loadKwh == 0)
+                                ? '0'
+                                : '${isSurplus ? '+' : ''}${netKwh.toStringAsFixed(0)}',
                             style: AppTypography.style(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
-                              color: isSurplus ? AppTheme.emeraldPrimary : AppTheme.textDark,
+                              color: (solarKwh == 0 && loadKwh == 0)
+                                  ? AppTheme.textDark
+                                  : (isSurplus ? AppTheme.emeraldPrimary : AppTheme.textDark),
                               letterSpacing: -1.0,
                             ),
                           ),
@@ -204,21 +214,27 @@ class DashboardScreen extends StatelessWidget {
                             color: AppTheme.textMuted,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isSurplus
-                                ? AppTheme.emeraldPrimary.withValues(alpha: 0.1)
-                                : AppTheme.warmAmber.withValues(alpha: 0.1),
+                            color: (solarKwh == 0 && loadKwh == 0)
+                                ? AppTheme.surfaceMuted
+                                : (isSurplus
+                                    ? AppTheme.emeraldPrimary.withValues(alpha: 0.1)
+                                    : AppTheme.warmAmber.withValues(alpha: 0.1)),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            isSurplus ? 'SURPLUS EXPORT' : 'GRID DEMAND',
+                            (solarKwh == 0 && loadKwh == 0)
+                                ? 'CLEAN SLATE'
+                                : (isSurplus ? 'SURPLUS EXPORT' : 'GRID DEMAND'),
                             style: AppTypography.style(
-                              fontSize: 8,
+                              fontSize: 8.5,
                               fontWeight: FontWeight.w800,
-                              color: isSurplus ? AppTheme.emeraldPrimary : AppTheme.warmAmber,
+                              color: (solarKwh == 0 && loadKwh == 0)
+                                  ? AppTheme.textMuted
+                                  : (isSurplus ? AppTheme.emeraldPrimary : AppTheme.warmAmber),
                               letterSpacing: 0.4,
                             ),
                           ),
@@ -490,6 +506,62 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildAutoDetectBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: AppTheme.emeraldPrimary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.radar_rounded, color: AppTheme.emeraldPrimary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Auto-Detect Appliances',
+                  style: AppTypography.style(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  'Auto-discover smart plugs & meters via Wi-Fi + BLE',
+                  style: AppTypography.style(fontSize: 11, color: AppTheme.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => AutoDetectDialog.show(context),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.emeraldPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Scan'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // -------------------------------------------------------------
   // 3. ERGONOMIC QUICK ACTION DOCK
   // -------------------------------------------------------------
@@ -508,6 +580,15 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _buildActionButton(
+            label: 'Auto-Detect',
+            icon: Icons.radar_rounded,
+            color: AppTheme.electricCyan,
+            onTap: () => AutoDetectDialog.show(context),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildActionButton(
             label: 'Solar/Inv',
             icon: Icons.wb_sunny_outlined,
             color: AppTheme.solarGold,
@@ -519,22 +600,8 @@ class DashboardScreen extends StatelessWidget {
           child: _buildActionButton(
             label: 'Tariffs',
             icon: Icons.tune_rounded,
-            color: AppTheme.electricCyan,
-            onTap: () => onNavigateTab(2),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildActionButton(
-            label: 'Reports',
-            icon: Icons.analytics_outlined,
             color: AppTheme.textDark,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ReportsScreen()),
-              );
-            },
+            onTap: () => onNavigateTab(2),
           ),
         ),
       ],
@@ -920,8 +987,8 @@ class _PowerDialPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height);
-    final radius = size.width / 2 - 12;
+    final center = Offset(size.width / 2, size.height - 4);
+    final radius = size.width / 2 - 16;
 
     const startAngle = math.pi;
     const sweepTotal = math.pi;
@@ -942,7 +1009,15 @@ class _PowerDialPainter extends CustomPainter {
     );
 
     final total = (solarKwh + loadKwh);
-    if (total <= 0) return;
+    if (total <= 0) {
+      // Draw subtle indicators at endpoints for clean slate
+      final tickPaint = Paint()
+        ..color = AppTheme.emeraldPrimary.withValues(alpha: 0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(center.dx - radius, center.dy), 4, tickPaint);
+      canvas.drawCircle(Offset(center.dx + radius, center.dy), 4, tickPaint);
+      return;
+    }
 
     final solarFrac = (solarKwh / total).clamp(0.05, 0.95);
     final loadFrac = 1.0 - solarFrac;

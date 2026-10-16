@@ -154,7 +154,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Package Size: ${info.fileSizeMb} MB • Released ${info.releaseDate}',
+              'Installed: v${info.currentVersion} • Update: v${info.latestVersion} (${info.fileSizeMb} MB)',
               style: AppTypography.style(fontSize: 12, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 16),

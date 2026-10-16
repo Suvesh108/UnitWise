@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../constants/app_constants.dart';
 
 class UpdateInfo {
   final bool hasUpdate;
@@ -28,14 +29,14 @@ class UpdateInfo {
   factory UpdateInfo.fromMap(Map<dynamic, dynamic> map) {
     return UpdateInfo(
       hasUpdate: map['hasUpdate'] as bool? ?? false,
-      currentVersion: map['currentVersion']?.toString() ?? '0.0.1',
-      currentBuild: (map['currentBuild'] as num?)?.toInt() ?? 1,
-      latestVersion: map['latestVersion']?.toString() ?? '1.1.0',
-      latestBuild: (map['latestBuild'] as num?)?.toInt() ?? 2,
-      releaseDate: map['releaseDate']?.toString() ?? 'October 2026',
-      releaseNotes: map['releaseNotes']?.toString() ?? 'Bug fixes and performance improvements.',
-      fileSizeMb: (map['fileSizeMb'] as num?)?.toDouble() ?? 14.8,
-      downloadUrl: map['downloadUrl']?.toString() ?? '',
+      currentVersion: map['currentVersion']?.toString() ?? AppConstants.appVersion,
+      currentBuild: (map['currentBuild'] as num?)?.toInt() ?? AppConstants.appBuild,
+      latestVersion: map['latestVersion']?.toString() ?? AppConstants.appVersion,
+      latestBuild: (map['latestBuild'] as num?)?.toInt() ?? AppConstants.appBuild,
+      releaseDate: map['releaseDate']?.toString() ?? AppConstants.releaseDate,
+      releaseNotes: map['releaseNotes']?.toString() ?? 'Bug fixes, modern UI overhaul, and auto-discovery scanner.',
+      fileSizeMb: (map['fileSizeMb'] as num?)?.toDouble() ?? 15.4,
+      downloadUrl: map['downloadUrl']?.toString() ?? AppConstants.releaseApkUrl,
     );
   }
 }
@@ -128,15 +129,15 @@ class NativeChannel {
 
     // Default verified update manifest for demo / fallback
     return const UpdateInfo(
-      hasUpdate: true,
-      currentVersion: '0.0.1',
-      currentBuild: 1,
-      latestVersion: '0.0.2',
-      latestBuild: 2,
-      releaseDate: 'October 2026',
-      releaseNotes: '• All-new high visual density Dashboard with Power Balance Dial\n• Modern 74dp bottom navigation bar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Real UnitWise Android launcher icon across all mipmap densities\n• Robust in-app OTA updater with direct GitHub Releases CDN streaming',
-      fileSizeMb: 15.2,
-      downloadUrl: 'https://github.com/Suvesh108/UnitWise/releases/download/v0.0.2/unitwise-v0.0.2.apk',
+      hasUpdate: false,
+      currentVersion: AppConstants.appVersion,
+      currentBuild: AppConstants.appBuild,
+      latestVersion: AppConstants.appVersion,
+      latestBuild: AppConstants.appBuild,
+      releaseDate: AppConstants.releaseDate,
+      releaseNotes: '• Dual-Mode (Wi-Fi mDNS + BLE) Auto-Discovery Appliance Scanner\n• Overhauled Dashboard with high-fidelity Power Balance Dial\n• 74dp ergonomic bottom navbar with persistent labels & symbols\n• Zero-overflow responsive layout across all Android screens\n• Synchronized v0.0.3 internal package update engine',
+      fileSizeMb: 15.4,
+      downloadUrl: AppConstants.releaseApkUrl,
     );
   }
 

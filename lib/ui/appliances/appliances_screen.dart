@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
 import 'edit_appliance_bottom_sheet.dart';
 import 'add_appliance_dialog.dart';
+import 'auto_detect_dialog.dart';
 
 class AppliancesScreen extends StatefulWidget {
   const AppliancesScreen({super.key});
@@ -59,6 +60,20 @@ class _AppliancesScreenState extends State<AppliancesScreen> with SingleTickerPr
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Auto-Detect Appliances (Wi-Fi/BLE)',
+            icon: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppTheme.electricCyan.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.electricCyan.withValues(alpha: 0.3)),
+              ),
+              child: const Icon(Icons.radar_rounded, size: 18, color: AppTheme.electricCyan),
+            ),
+            onPressed: () => AutoDetectDialog.show(context),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: 'Add Custom Appliance',
             icon: Container(
