@@ -33,6 +33,7 @@ class DefaultAppliances {
       category: ApplianceCategory.cooling,
       calculationType: CalculationType.dutyCycle,
       defaultWatts: 1450.0,
+      defaultStandbyWatts: 14.0, // PCB and crankcase heater standby when turned off by remote
       defaultDutyCycle: 0.48, // Modulates power, average active compressor load ~700W
       defaultHoursPerDay: 8.0,
       defaultDaysPerMonth: 30,
@@ -46,6 +47,7 @@ class DefaultAppliances {
       category: ApplianceCategory.cooling,
       calculationType: CalculationType.dutyCycle,
       defaultWatts: 1550.0,
+      defaultStandbyWatts: 8.0,
       defaultDutyCycle: 0.70, // Fixed compressor cycles on/off
       defaultHoursPerDay: 8.0,
       defaultDaysPerMonth: 30,
@@ -99,6 +101,7 @@ class DefaultAppliances {
       category: ApplianceCategory.kitchen,
       calculationType: CalculationType.continuous,
       defaultWatts: 1200.0,
+      defaultStandbyWatts: 4.0, // Display clock & sensor standby
       defaultHoursPerDay: 0.35, // ~20 minutes daily
       defaultDaysPerMonth: 30,
       iconName: 'microwave',
@@ -175,6 +178,7 @@ class DefaultAppliances {
       category: ApplianceCategory.laundry,
       calculationType: CalculationType.perCycle,
       defaultWatts: 2000.0,
+      defaultStandbyWatts: 3.0,
       defaultKwhPerCycle: 0.75, // kWh per wash cycle with heater
       defaultCyclesPerMonth: 15,
       defaultHoursPerDay: 1.0,
@@ -189,6 +193,7 @@ class DefaultAppliances {
       category: ApplianceCategory.laundry,
       calculationType: CalculationType.perCycle,
       defaultWatts: 450.0,
+      defaultStandbyWatts: 2.0,
       defaultKwhPerCycle: 0.35, // kWh per wash cycle (ambient water)
       defaultCyclesPerMonth: 15,
       defaultHoursPerDay: 1.0,
@@ -281,6 +286,7 @@ class DefaultAppliances {
       category: ApplianceCategory.entertainment,
       calculationType: CalculationType.continuous,
       defaultWatts: 100.0,
+      defaultStandbyWatts: 6.0, // Wi-Fi smart standby
       defaultHoursPerDay: 4.0,
       defaultDaysPerMonth: 30,
       iconName: 'tv',
@@ -293,6 +299,7 @@ class DefaultAppliances {
       category: ApplianceCategory.entertainment,
       calculationType: CalculationType.continuous,
       defaultWatts: 65.0,
+      defaultStandbyWatts: 3.0, // AC power brick idle draw
       defaultHoursPerDay: 7.0,
       defaultDaysPerMonth: 30,
       iconName: 'laptop',
@@ -305,6 +312,7 @@ class DefaultAppliances {
       category: ApplianceCategory.entertainment,
       calculationType: CalculationType.continuous,
       defaultWatts: 250.0,
+      defaultStandbyWatts: 8.0, // PSU motherboard & peripheral 5VSB standby
       defaultHoursPerDay: 5.0,
       defaultDaysPerMonth: 30,
       iconName: 'desktop_windows',
@@ -331,6 +339,7 @@ class DefaultAppliances {
       category: ApplianceCategory.other,
       calculationType: CalculationType.continuous,
       defaultWatts: 650.0,
+      defaultStandbyWatts: 4.0,
       defaultHoursPerDay: 3.5,
       defaultDaysPerMonth: 25,
       iconName: 'electric_scooter',

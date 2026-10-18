@@ -190,18 +190,34 @@ class EnergyProvider extends ChangeNotifier {
       appliance,
       monthDays: activeHousehold.daysInMonth,
     );
+    if (appKwh <= 0) return 0.0;
     return (appKwh / totalSolar) * 100.0;
   }
 
   /// Checks if solar generation is sufficient to cover this appliance
   bool isApplianceSolarCovered(HouseholdAppliance appliance) {
+    if (effectiveSolarMonthlyKwh <= 0) return false;
     final balance = netEnergyBalance;
     if (balance.isSurplus) return true;
     final appKwh = EnergyCalculator.calculateApplianceMonthlyKwh(
       appliance,
       monthDays: activeHousehold.daysInMonth,
     );
-    return effectiveSolarMonthlyKwh >= appKwh;
+    return appKwh > 0 && effectiveSolarMonthlyKwh >= appKwh;
+  }
+
+  /// Intelligent load shifting recommendations to maximize solar self-consumption
+  SolarShiftPlan get solarShiftPlan {
+    final rate = billResult.effectiveRatePerKwh > 0
+        ? billResult.effectiveRatePerKwh
+        : tariff.flatRatePerKwh;
+    return SolarCalculator.analyzeLoadShifting(
+      appliances: currentAppliances,
+      solarMonthlyKwh: effectiveSolarMonthlyKwh,
+      retailRatePerKwh: rate,
+      exportRatePerKwh: solar.exportTariffPerKwh,
+      monthDays: activeHousehold.daysInMonth,
+    );
   }
 
   // --- Appliance Actions ---

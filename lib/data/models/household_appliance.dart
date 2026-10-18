@@ -9,6 +9,7 @@ class HouseholdAppliance {
   final CalculationType calculationType;
   final int quantity;
   final double wattage;
+  final double standbyWatts;
   final double hoursPerDay;
   final int daysPerMonth;
   final int cyclesPerMonth;
@@ -26,6 +27,7 @@ class HouseholdAppliance {
     required this.calculationType,
     required this.quantity,
     required this.wattage,
+    this.standbyWatts = 0.0,
     required this.hoursPerDay,
     required this.daysPerMonth,
     this.cyclesPerMonth = 15,
@@ -44,6 +46,7 @@ class HouseholdAppliance {
     CalculationType? calculationType,
     int? quantity,
     double? wattage,
+    double? standbyWatts,
     double? hoursPerDay,
     int? daysPerMonth,
     int? cyclesPerMonth,
@@ -61,6 +64,7 @@ class HouseholdAppliance {
       calculationType: calculationType ?? this.calculationType,
       quantity: quantity ?? this.quantity,
       wattage: wattage ?? this.wattage,
+      standbyWatts: standbyWatts ?? this.standbyWatts,
       hoursPerDay: hoursPerDay ?? this.hoursPerDay,
       daysPerMonth: daysPerMonth ?? this.daysPerMonth,
       cyclesPerMonth: cyclesPerMonth ?? this.cyclesPerMonth,
@@ -80,6 +84,7 @@ class HouseholdAppliance {
         'calculationType': calculationType.name,
         'quantity': quantity,
         'wattage': wattage,
+        'standbyWatts': standbyWatts,
         'hoursPerDay': hoursPerDay,
         'daysPerMonth': daysPerMonth,
         'cyclesPerMonth': cyclesPerMonth,
@@ -105,6 +110,7 @@ class HouseholdAppliance {
       ),
       quantity: (json['quantity'] as num).toInt(),
       wattage: (json['wattage'] as num).toDouble(),
+      standbyWatts: (json['standbyWatts'] as num?)?.toDouble() ?? 0.0,
       hoursPerDay: (json['hoursPerDay'] as num).toDouble(),
       daysPerMonth: (json['daysPerMonth'] as num).toInt(),
       cyclesPerMonth: (json['cyclesPerMonth'] as num?)?.toInt() ?? 15,

@@ -26,6 +26,7 @@ class _AddCustomApplianceDialogState extends State<AddCustomApplianceDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _wattsController = TextEditingController(text: '100');
+  final _standbyWattsController = TextEditingController(text: '0');
   final _hoursController = TextEditingController(text: '4.0');
   ApplianceCategory _category = ApplianceCategory.other;
   int _quantity = 1;
@@ -34,6 +35,7 @@ class _AddCustomApplianceDialogState extends State<AddCustomApplianceDialog> {
   void dispose() {
     _nameController.dispose();
     _wattsController.dispose();
+    _standbyWattsController.dispose();
     _hoursController.dispose();
     super.dispose();
   }
@@ -119,6 +121,17 @@ class _AddCustomApplianceDialogState extends State<AddCustomApplianceDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _standbyWattsController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Standby / Idle Power (Vampire Draw)',
+                  hintText: 'Watts drawn when off / standby',
+                  suffixText: 'W',
+                ),
+                validator: (v) => (v != null && v.isNotEmpty && double.tryParse(v) == null) ? 'Invalid' : null,
+              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -163,6 +176,7 @@ class _AddCustomApplianceDialogState extends State<AddCustomApplianceDialog> {
               NativeChannel.triggerHaptic();
               final watts = double.parse(_wattsController.text);
               final hours = double.parse(_hoursController.text);
+              final standbyWatts = double.tryParse(_standbyWattsController.text) ?? 0.0;
               final newApp = HouseholdAppliance(
                 id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
                 householdId: energy.activeHousehold.id,
@@ -171,6 +185,7 @@ class _AddCustomApplianceDialogState extends State<AddCustomApplianceDialog> {
                 calculationType: CalculationType.continuous,
                 quantity: _quantity,
                 wattage: watts,
+                standbyWatts: standbyWatts,
                 hoursPerDay: hours,
                 daysPerMonth: energy.activeHousehold.daysInMonth,
               );

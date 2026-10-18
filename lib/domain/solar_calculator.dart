@@ -1,4 +1,7 @@
 import '../data/models/solar_config.dart';
+import '../data/models/household_appliance.dart';
+import '../data/models/appliance_template.dart';
+import 'energy_calculator.dart';
 
 class SolarCalculationResult {
   final double monthlyConsumptionKwh;
@@ -43,6 +46,9 @@ class SolarCalculationResult {
     required this.recommendationSummary,
   });
 
+  int get treesPlantedEquivalent => (co2OffsetKgAnnual / 22.0).round();
+  double get co2OffsetTonsAnnual => co2OffsetKgAnnual / 1000.0;
+
   static const SolarCalculationResult empty = SolarCalculationResult(
     monthlyConsumptionKwh: 0,
     recommendedKw: 0,
@@ -63,6 +69,47 @@ class SolarCalculationResult {
     co2OffsetKgAnnual: 0,
     lifetimeNetSavings25Years: 0,
     recommendationSummary: '',
+  );
+}
+
+class ShiftableApplianceRecommendation {
+  final HouseholdAppliance appliance;
+  final double monthlyKwh;
+  final double monthlyCostSavings;
+  final String optimalWindow;
+  final String rationale;
+
+  const ShiftableApplianceRecommendation({
+    required this.appliance,
+    required this.monthlyKwh,
+    required this.monthlyCostSavings,
+    required this.optimalWindow,
+    required this.rationale,
+  });
+}
+
+class SolarShiftPlan {
+  final double totalShiftableKwh;
+  final double totalMonthlySavings;
+  final double solarSelfConsumptionBoostPct;
+  final List<ShiftableApplianceRecommendation> recommendations;
+
+  const SolarShiftPlan({
+    required this.totalShiftableKwh,
+    required this.totalMonthlySavings,
+    required this.solarSelfConsumptionBoostPct,
+    required this.recommendations,
+  });
+
+  List<ShiftableApplianceRecommendation> get shiftableAppliances => recommendations;
+  double get totalShiftableMonthlyKwh => totalShiftableKwh;
+  double get estimatedMonthlySavings => totalMonthlySavings;
+
+  static const SolarShiftPlan empty = SolarShiftPlan(
+    totalShiftableKwh: 0.0,
+    totalMonthlySavings: 0.0,
+    solarSelfConsumptionBoostPct: 0.0,
+    recommendations: [],
   );
 }
 
@@ -94,6 +141,10 @@ class NetEnergyBalance {
   });
 
   double get netKwh => netBalanceKwh;
+  double get co2AvoidedMonthlyKg => solarMonthlyKwh * 0.82;
+  double get co2AvoidedAnnualKg => solarMonthlyKwh * 0.82 * 12.0;
+  double get co2OffsetTonsAnnual => co2AvoidedAnnualKg / 1000.0;
+  int get treesEquivalent => ((solarMonthlyKwh * 0.82 * 12.0) / 22.0).round();
 
   static const NetEnergyBalance empty = NetEnergyBalance(
     solarMonthlyKwh: 0,
@@ -304,5 +355,88 @@ class SolarCalculator {
     final watts = voltageVolts * currentAmps;
     final dailyKwh = (watts * peakSunHours) / 1000.0;
     return dailyKwh * days;
+  }
+
+  /// Analyzes appliances and calculates potential savings by shifting heavy discretionary loads
+  /// into the 10:00 AM – 3:00 PM peak solar generation window.
+  static SolarShiftPlan analyzeLoadShifting({
+    required List<HouseholdAppliance> appliances,
+    required double solarMonthlyKwh,
+    required double retailRatePerKwh,
+    required double exportRatePerKwh,
+    int monthDays = 30,
+  }) {
+    if (appliances.isEmpty || solarMonthlyKwh <= 0) {
+      return SolarShiftPlan.empty;
+    }
+
+    final recommendations = <ShiftableApplianceRecommendation>[];
+    double totalShiftableKwh = 0.0;
+    double totalMonthlySavings = 0.0;
+    // Differential between grid import cost and feed-in export credit
+    final rateDifferential = (retailRatePerKwh - exportRatePerKwh).clamp(0.0, retailRatePerKwh);
+
+    for (final app in appliances) {
+      bool isShiftable = false;
+      String rationale = '';
+      String optimalWindow = '11:00 AM – 2:00 PM';
+
+      if (app.category == ApplianceCategory.laundry) {
+        isShiftable = true;
+        optimalWindow = '10:30 AM – 1:30 PM';
+        rationale = 'Run wash & drying cycles during peak irradiance to utilize 100% free rooftop solar.';
+      } else if (app.category == ApplianceCategory.waterPumps) {
+        isShiftable = true;
+        optimalWindow = '11:00 AM – 1:00 PM';
+        rationale = 'Fill overhead tanks during solar midday peak rather than early morning grid hours.';
+      } else if (app.category == ApplianceCategory.heating) {
+        isShiftable = true;
+        optimalWindow = '12:00 PM – 3:00 PM';
+        rationale = 'Preheat storage geysers using solar surplus before evening utility peak tariff.';
+      } else if (app.category == ApplianceCategory.other &&
+          (app.name.toLowerCase().contains('ev') ||
+              app.name.toLowerCase().contains('charger') ||
+              app.wattage >= 500)) {
+        isShiftable = true;
+        optimalWindow = '10:00 AM – 3:00 PM';
+        rationale = 'Charge electric vehicle batteries directly from rooftop solar arrays.';
+      } else if (app.name.toLowerCase().contains('dishwasher')) {
+        isShiftable = true;
+        optimalWindow = '1:00 PM – 3:00 PM';
+        rationale = 'Run heated dish cycles on solar yield instead of grid import.';
+      }
+
+      if (isShiftable) {
+        final monthlyKwh = EnergyCalculator.calculateApplianceActiveKwh(app, monthDays: monthDays);
+        if (monthlyKwh > 0) {
+          final savings = monthlyKwh * rateDifferential;
+          totalShiftableKwh += monthlyKwh;
+          totalMonthlySavings += savings;
+
+          recommendations.add(
+            ShiftableApplianceRecommendation(
+              appliance: app,
+              monthlyKwh: monthlyKwh,
+              monthlyCostSavings: savings,
+              optimalWindow: optimalWindow,
+              rationale: rationale,
+            ),
+          );
+        }
+      }
+    }
+
+    recommendations.sort((a, b) => b.monthlyCostSavings.compareTo(a.monthlyCostSavings));
+
+    final boostPct = solarMonthlyKwh > 0
+        ? ((totalShiftableKwh / solarMonthlyKwh) * 100.0).clamp(0.0, 100.0)
+        : 0.0;
+
+    return SolarShiftPlan(
+      totalShiftableKwh: totalShiftableKwh,
+      totalMonthlySavings: totalMonthlySavings,
+      solarSelfConsumptionBoostPct: boostPct,
+      recommendations: recommendations,
+    );
   }
 }

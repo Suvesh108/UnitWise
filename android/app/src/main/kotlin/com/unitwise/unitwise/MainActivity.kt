@@ -145,20 +145,20 @@ class MainActivity : FlutterActivity() {
                     null
                 }
 
-                val currentVersion = pInfo?.versionName ?: "0.0.6"
+                val currentVersion = pInfo?.versionName ?: "0.0.7"
                 val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    pInfo?.longVersionCode?.toInt() ?: 6
+                    pInfo?.longVersionCode?.toInt() ?: 7
                 } else {
                     @Suppress("DEPRECATION")
-                    pInfo?.versionCode ?: 6
+                    pInfo?.versionCode ?: 7
                 }
 
-                var latestVersion = "0.0.6"
-                var latestBuild = 6
+                var latestVersion = "0.0.7"
+                var latestBuild = 7
                 var releaseDate = "October 2026"
-                var releaseNotes = "• Real live network auto-detection for smart plugs\n• Fluid spring-eased animations across all sections\n• Streamlined Settings\n• Multi-property isolation"
-                var fileSizeMb = 15.6
-                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.6/unitwise-v0.0.6.apk"
+                var releaseNotes = "• Sense-grade Vampire Load (Standby Power) Disaggregation\n• Real-time Animated Particle Energy Flow Diagram\n• Intelligent Peak Solar Load-Shifting Advisor\n• CO2 Offset & Tree-Planting Carbon Sink Metrics"
+                var fileSizeMb = 16.2
+                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.7/unitwise-v0.0.7.apk"
 
                 // 1. Live network query to GitHub Releases API
                 try {

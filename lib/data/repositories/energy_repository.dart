@@ -240,5 +240,7 @@ class EnergyRepository {
     await setActiveHouseholdId(defaultHousehold.id);
     await saveAppliances([]);
     await saveCustomSolarGeneration(null);
+    await _prefs.remove(_keyInverterVoltage);
+    await _prefs.remove(_keyInverterCurrent);
   }
 }

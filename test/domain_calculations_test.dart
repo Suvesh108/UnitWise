@@ -305,5 +305,76 @@ void main() {
       );
       expect(kwh, closeTo(345.0, 0.01));
     });
+
+    test('Standby Vampire Load Disaggregation: active vs standby power breakdown', () {
+      const smartTv = HouseholdAppliance(
+        id: 'tv_1',
+        householdId: 'h1',
+        name: 'Smart OLED TV',
+        category: ApplianceCategory.entertainment,
+        calculationType: CalculationType.continuous,
+        quantity: 1,
+        wattage: 120.0,
+        standbyWatts: 15.0,
+        hoursPerDay: 4.0, // active 4h, standby 20h
+        daysPerMonth: 30,
+      );
+
+      final activeKwh = EnergyCalculator.calculateApplianceActiveKwh(smartTv, monthDays: 30);
+      final standbyKwh = EnergyCalculator.calculateApplianceStandbyKwh(smartTv, monthDays: 30);
+      final totalKwh = EnergyCalculator.calculateApplianceMonthlyKwh(smartTv, monthDays: 30);
+
+      // Active: (120 * 4 * 30) / 1000 = 14.4 kWh
+      expect(activeKwh, closeTo(14.4, 0.01));
+      // Standby: (15 * (24 - 4) * 30) / 1000 = (15 * 20 * 30) / 1000 = 9.0 kWh
+      expect(standbyKwh, closeTo(9.0, 0.01));
+      // Total monthly: 14.4 + 9.0 = 23.4 kWh
+      expect(totalKwh, closeTo(23.4, 0.01));
+
+      final summary = EnergyCalculator.calculateHouseholdConsumption([smartTv], monthDays: 30);
+      expect(summary.standbySummary.totalStandbyWatts, equals(15.0));
+      expect(summary.standbySummary.monthlyStandbyKwh, closeTo(9.0, 0.01));
+      expect(summary.standbySummary.offenders.length, equals(1));
+    });
+
+    test('Solar Load Shifting Plan & Carbon Metrics', () {
+      const washer = HouseholdAppliance(
+        id: 'w_1',
+        householdId: 'h1',
+        name: 'Washing Machine',
+        category: ApplianceCategory.laundry,
+        calculationType: CalculationType.perCycle,
+        quantity: 1,
+        wattage: 2000.0,
+        kwhPerCycle: 1.2,
+        cyclesPerMonth: 20,
+        hoursPerDay: 1.0,
+        daysPerMonth: 20,
+      );
+
+      final plan = SolarCalculator.analyzeLoadShifting(
+        appliances: [washer],
+        solarMonthlyKwh: 300.0,
+        retailRatePerKwh: 7.50,
+        exportRatePerKwh: 3.00,
+        monthDays: 30,
+      );
+
+      expect(plan.shiftableAppliances.isNotEmpty, isTrue);
+      expect(plan.totalShiftableMonthlyKwh, closeTo(24.0, 0.01)); // 1.2 * 20 = 24 kWh
+      // Unit delta = 7.50 - 3.00 = 4.50. Savings = 24 * 4.50 = 108.0
+      expect(plan.estimatedMonthlySavings, closeTo(108.0, 0.01));
+
+      // Test ecological metrics in balance
+      final balance = SolarCalculator.calculateNetBalance(
+        solarMonthlyKwh: 350.0,
+        applianceMonthlyKwh: 200.0,
+        retailRatePerKwh: 7.0,
+        exportRatePerKwh: 3.5,
+        fixedCharges: 50.0,
+      );
+      expect(balance.co2OffsetTonsAnnual, greaterThan(0));
+      expect(balance.treesEquivalent, greaterThan(0));
+    });
   });
 }

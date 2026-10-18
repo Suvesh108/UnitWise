@@ -11,11 +11,20 @@ import '../../providers/settings_provider.dart';
 import '../appliances/auto_detect_dialog.dart';
 import '../widgets/smooth_entrance.dart';
 import 'widgets/energy_donut_chart.dart';
+import 'widgets/energy_flow_diagram.dart';
+import 'widgets/vampire_load_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final Function(int) onNavigateTab;
 
   const DashboardScreen({super.key, required this.onNavigateTab});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _heroViewIndex = 0; // 0 = Donut Breakdown, 1 = Live Power Flow
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +33,9 @@ class DashboardScreen extends StatelessWidget {
     final summary = energy.consumptionSummary;
     final balance = energy.netEnergyBalance;
     final currency = settings.currency;
+    final effectiveRate = energy.billResult.effectiveRatePerKwh > 0
+        ? energy.billResult.effectiveRatePerKwh
+        : energy.tariff.flatRatePerKwh;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
@@ -39,18 +51,62 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Hero Animated Donut Graph Card
+              // Hero View Mode Toggle
+              Center(
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.borderSubtle),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildHeroTabItem(0, 'Breakdown', Icons.pie_chart_outline_rounded),
+                      _buildHeroTabItem(1, 'Power Flow', Icons.alt_route_rounded),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 1. Hero Card: Animated Donut Breakdown or Live Particle Power Flow
               SmoothEntrance(
                 delayMs: 0,
-                child: EnergyDonutChart(
-                  solarKwh: balance.solarMonthlyKwh,
-                  loadKwh: balance.applianceMonthlyKwh,
-                  netKwh: balance.netBalanceKwh,
-                  isSurplus: balance.isSurplus,
-                  categoryResults: summary.categoryResults,
-                  currency: currency,
-                  onNavigateSolar: () => onNavigateTab(3),
-                  onNavigateAppliances: () => onNavigateTab(1),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _heroViewIndex == 0
+                      ? EnergyDonutChart(
+                          key: const ValueKey('donut_chart'),
+                          solarKwh: balance.solarMonthlyKwh,
+                          loadKwh: balance.applianceMonthlyKwh,
+                          netKwh: balance.netBalanceKwh,
+                          isSurplus: balance.isSurplus,
+                          categoryResults: summary.categoryResults,
+                          currency: currency,
+                          onNavigateSolar: () => widget.onNavigateTab(3),
+                          onNavigateAppliances: () => widget.onNavigateTab(1),
+                        )
+                      : EnergyFlowDiagram(
+                          key: const ValueKey('flow_diagram'),
+                          solarKwh: balance.solarMonthlyKwh,
+                          loadKwh: balance.applianceMonthlyKwh,
+                          netKwh: balance.netBalanceKwh,
+                          isSurplus: balance.isSurplus,
+                          currency: currency,
+                          effectiveRate: effectiveRate,
+                          onNavigateSolar: () => widget.onNavigateTab(3),
+                          onNavigateAppliances: () => widget.onNavigateTab(1),
+                        ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -76,7 +132,21 @@ class DashboardScreen extends StatelessWidget {
                 delayMs: 120,
                 child: _buildPrimaryMetrics(context, summary, balance, currency),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // 4b. Standby / Vampire Load Disaggregation Card
+              if (summary.standbySummary.totalStandbyWatts > 0) ...[
+                SmoothEntrance(
+                  delayMs: 140,
+                  child: VampireLoadCard(
+                    summary: summary.standbySummary,
+                    currency: currency,
+                    effectiveRate: effectiveRate,
+                    onInspectOffenders: () => widget.onNavigateTab(1),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // 5. Minimalist Top Consuming Appliances
               SmoothEntrance(
@@ -86,6 +156,45 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 24),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroTabItem(int index, String label, IconData icon) {
+    final isSelected = _heroViewIndex == index;
+    return GestureDetector(
+      onTap: () {
+        if (_heroViewIndex != index) {
+          NativeChannel.triggerHaptic();
+          setState(() => _heroViewIndex = index);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.emeraldPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? Colors.white : AppTheme.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTypography.style(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? Colors.white : AppTheme.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -166,7 +275,7 @@ class DashboardScreen extends StatelessWidget {
             label: 'Add',
             color: AppTheme.emeraldPrimary,
             isPrimary: true,
-            onTap: () => onNavigateTab(1),
+            onTap: () => widget.onNavigateTab(1),
           ),
         ),
         const SizedBox(width: 8),
@@ -184,7 +293,7 @@ class DashboardScreen extends StatelessWidget {
             icon: Icons.wb_sunny_rounded,
             label: 'Solar',
             color: AppTheme.solarGold,
-            onTap: () => onNavigateTab(3),
+            onTap: () => widget.onNavigateTab(3),
           ),
         ),
         const SizedBox(width: 8),
@@ -193,7 +302,7 @@ class DashboardScreen extends StatelessWidget {
             icon: Icons.tune_rounded,
             label: 'Tariff',
             color: AppTheme.textDark,
-            onTap: () => onNavigateTab(2),
+            onTap: () => widget.onNavigateTab(2),
           ),
         ),
       ],
@@ -273,7 +382,7 @@ class DashboardScreen extends StatelessWidget {
             subtitle: balance.isSurplus ? 'Net Zero' : '${summary.totalMonthlyKwh.toStringAsFixed(0)} u used',
             badgeColor: balance.isSurplus ? AppTheme.emeraldPrimary : AppTheme.warmAmber,
             icon: Icons.receipt_long_rounded,
-            onTap: () => onNavigateTab(2),
+            onTap: () => widget.onNavigateTab(2),
           ),
         ),
         const SizedBox(width: 10),
@@ -285,7 +394,7 @@ class DashboardScreen extends StatelessWidget {
             subtitle: balance.isSurplus ? '100% Self-Powered' : '${balance.solarMonthlyKwh.toStringAsFixed(0)} u generated',
             badgeColor: AppTheme.solarGold,
             icon: Icons.solar_power_rounded,
-            onTap: () => onNavigateTab(3),
+            onTap: () => widget.onNavigateTab(3),
           ),
         ),
       ],
@@ -418,7 +527,7 @@ class DashboardScreen extends StatelessWidget {
               InkWell(
                 onTap: () {
                   NativeChannel.triggerHaptic();
-                  onNavigateTab(1);
+                  widget.onNavigateTab(1);
                 },
                 child: Text(
                   summary.applianceResults.isEmpty ? '' : 'View All',
@@ -449,7 +558,7 @@ class DashboardScreen extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: () {
                         NativeChannel.triggerHaptic();
-                        onNavigateTab(1);
+                        widget.onNavigateTab(1);
                       },
                       icon: const Icon(Icons.add, size: 14),
                       label: const Text('Add Appliance'),

@@ -43,6 +43,7 @@ class EditApplianceBottomSheet extends StatefulWidget {
 class _EditApplianceBottomSheetState extends State<EditApplianceBottomSheet> {
   late TextEditingController _nameController;
   late TextEditingController _wattageController;
+  late TextEditingController _standbyWattsController;
   late int _quantity;
   late double _hoursPerDay;
   late int _daysPerMonth;
@@ -59,6 +60,9 @@ class _EditApplianceBottomSheetState extends State<EditApplianceBottomSheet> {
     final a = widget.appliance;
     _nameController = TextEditingController(text: a.name);
     _wattageController = TextEditingController(text: a.wattage.toStringAsFixed(0));
+    _standbyWattsController = TextEditingController(
+      text: a.standbyWatts > 0 ? a.standbyWatts.toStringAsFixed(1) : '0',
+    );
     _quantity = a.quantity;
     _hoursPerDay = a.hoursPerDay;
     _daysPerMonth = a.daysPerMonth;
@@ -73,14 +77,17 @@ class _EditApplianceBottomSheetState extends State<EditApplianceBottomSheet> {
   void dispose() {
     _nameController.dispose();
     _wattageController.dispose();
+    _standbyWattsController.dispose();
     super.dispose();
   }
 
   HouseholdAppliance _buildCurrentAppliance() {
     final parsedWatts = double.tryParse(_wattageController.text) ?? widget.appliance.wattage;
+    final parsedStandby = double.tryParse(_standbyWattsController.text) ?? widget.appliance.standbyWatts;
     return widget.appliance.copyWith(
       name: _nameController.text.trim().isEmpty ? widget.appliance.name : _nameController.text.trim(),
       wattage: parsedWatts,
+      standbyWatts: parsedStandby,
       quantity: _quantity,
       hoursPerDay: _hoursPerDay,
       daysPerMonth: _daysPerMonth,
@@ -422,7 +429,18 @@ class _EditApplianceBottomSheetState extends State<EditApplianceBottomSheet> {
                     controller: _wattageController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Power Rating (Watts)',
+                      labelText: 'Active Power Rating (Watts)',
+                      suffixText: 'W',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _standbyWattsController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Standby / Idle Power (Vampire Draw)',
+                      hintText: 'Watts drawn when turned off or idle',
                       suffixText: 'W',
                     ),
                     onChanged: (_) => setState(() {}),

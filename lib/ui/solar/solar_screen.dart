@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/native/native_channel.dart';
 import '../widgets/smooth_entrance.dart';
+import 'widgets/solar_load_shift_advisor.dart';
 
 class SolarScreen extends StatefulWidget {
   const SolarScreen({super.key});
@@ -106,19 +107,32 @@ class _SolarScreenState extends State<SolarScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 3. Solar Generation Input Section (with Volts x Amps, Daily Units, kW)
+            // 2. Solar Generation Input Section (with Volts x Amps, Daily Units, kW)
             SmoothEntrance(
               delayMs: 60,
               child: _buildSolarInputSection(context, energy, solar.peakSunHours, solar.performanceRatio),
             ),
             const SizedBox(height: 16),
 
-            // 4. Household Appliance Load Sync / Custom Load
+            // 3. Household Appliance Load Sync / Custom Load
             SmoothEntrance(
               delayMs: 120,
               child: _buildApplianceLoadSyncSection(context, energy, summary),
             ),
             const SizedBox(height: 16),
+
+            // 4. Intelligent Solar Load-Shifting Advisor
+            if (energy.solarShiftPlan.shiftableAppliances.isNotEmpty && energy.effectiveSolarMonthlyKwh > 0) ...[
+              SmoothEntrance(
+                delayMs: 150,
+                child: SolarLoadShiftAdvisor(
+                  plan: energy.solarShiftPlan,
+                  currency: currency,
+                  solarMonthlyKwh: energy.effectiveSolarMonthlyKwh,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // 5. Before vs After Financial Bento Grid
             SmoothEntrance(
@@ -706,6 +720,32 @@ class _SolarScreenState extends State<SolarScreen> {
             ),
           ],
         ),
+        if (balance.solarMonthlyKwh > 0) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBentoTile(
+                  'CO2 EMISSIONS AVOIDED',
+                  '${balance.co2OffsetTonsAnnual.toStringAsFixed(2)} t / yr',
+                  '~${(balance.solarMonthlyKwh * 0.82).toStringAsFixed(0)} kg CO₂ / mo saved',
+                  AppTheme.emeraldPrimary,
+                  icon: Icons.eco_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildBentoTile(
+                  'TREE EQUIVALENT',
+                  '${balance.treesEquivalent.toStringAsFixed(0)} Trees',
+                  'Equivalent 10-yr carbon sink',
+                  AppTheme.emeraldPrimary,
+                  icon: Icons.park_rounded,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -787,7 +827,7 @@ class _SolarScreenState extends State<SolarScreen> {
     );
   }
 
-  Widget _buildBentoTile(String title, String mainValue, String subValue, Color color) {
+  Widget _buildBentoTile(String title, String mainValue, String subValue, Color color, {IconData? icon}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -798,14 +838,21 @@ class _SolarScreenState extends State<SolarScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: AppTypography.style(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textMuted,
-              letterSpacing: 0.8,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: AppTypography.style(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textMuted,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              if (icon != null)
+                Icon(icon, size: 15, color: color),
+            ],
           ),
           const SizedBox(height: 6),
           FittedBox(
