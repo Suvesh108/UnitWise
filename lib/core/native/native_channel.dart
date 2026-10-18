@@ -116,6 +116,36 @@ class NativeChannel {
     }
   }
 
+  /// Checks Bluetooth adapter status on Android
+  static Future<Map<String, dynamic>> checkBluetoothStatus() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final res = await _channel.invokeMethod<Map<dynamic, dynamic>>('checkBluetoothStatus');
+        if (res != null) {
+          return Map<String, dynamic>.from(res);
+        }
+      }
+    } catch (e) {
+      debugPrint('NativeChannel: checkBluetoothStatus error: $e');
+    }
+    return {'isSupported': false, 'isEnabled': false};
+  }
+
+  /// Starts native Bluetooth Low Energy (BLE 2.4GHz) appliance discovery
+  static Future<List<Map<String, dynamic>>> startBleScan() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final res = await _channel.invokeMethod<List<dynamic>>('startBleScan');
+        if (res != null) {
+          return res.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('NativeChannel: startBleScan error: $e');
+    }
+    return [];
+  }
+
   static bool isVersionNewer(String latest, String current) {
     try {
       final latestClean = latest.replaceAll('v', '').trim();

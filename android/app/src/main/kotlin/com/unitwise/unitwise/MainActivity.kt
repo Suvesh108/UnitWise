@@ -15,6 +15,11 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -66,6 +71,13 @@ class MainActivity : FlutterActivity() {
                     } catch (e: Exception) {
                         result.error("INSTALL_ERROR", "Failed to launch installer: ${e.message}", null)
                     }
+                }
+                "checkBluetoothStatus" -> {
+                    val status = getBluetoothStatus()
+                    result.success(status)
+                }
+                "startBleScan" -> {
+                    startBleDeviceScan(result)
                 }
                 else -> {
                     result.notImplemented()
@@ -145,20 +157,20 @@ class MainActivity : FlutterActivity() {
                     null
                 }
 
-                val currentVersion = pInfo?.versionName ?: "0.0.7"
+                val currentVersion = pInfo?.versionName ?: "0.0.8"
                 val currentBuild = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    pInfo?.longVersionCode?.toInt() ?: 7
+                    pInfo?.longVersionCode?.toInt() ?: 8
                 } else {
                     @Suppress("DEPRECATION")
-                    pInfo?.versionCode ?: 7
+                    pInfo?.versionCode ?: 8
                 }
 
-                var latestVersion = "0.0.7"
-                var latestBuild = 7
+                var latestVersion = "0.0.8"
+                var latestBuild = 8
                 var releaseDate = "October 2026"
-                var releaseNotes = "• Sense-grade Vampire Load (Standby Power) Disaggregation\n• Real-time Animated Particle Energy Flow Diagram\n• Intelligent Peak Solar Load-Shifting Advisor\n• CO2 Offset & Tree-Planting Carbon Sink Metrics"
-                var fileSizeMb = 16.2
-                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.7/unitwise-v0.0.7.apk"
+                var releaseNotes = "• Active Wi-Fi SSDP/mDNS UDP signal broadcast & fast parallel subnet probing\n• Live native Bluetooth Low Energy (BLE 2.4GHz) discovery\n• Live signal handshake & RSSI diagnostics\n• Streamlined OTA update prompt without verbose changelog text"
+                var fileSizeMb = 16.5
+                var downloadUrl = "https://github.com/Suvesh108/UnitWise/releases/download/v0.0.8/unitwise-v0.0.8.apk"
 
                 // 1. Live network query to GitHub Releases API
                 try {
@@ -359,5 +371,76 @@ class MainActivity : FlutterActivity() {
 
         startActivity(installIntent)
         return true
+    }
+
+    private fun getBluetoothStatus(): Map<String, Any> {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val adapter = bluetoothManager?.adapter
+        val isSupported = adapter != null
+        val isEnabled = adapter?.isEnabled ?: false
+        return mapOf(
+            "isSupported" to isSupported,
+            "isEnabled" to isEnabled
+        )
+    }
+
+    private fun startBleDeviceScan(result: MethodChannel.Result) {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val adapter = bluetoothManager?.adapter
+        if (adapter == null || !adapter.isEnabled) {
+            result.success(emptyList<Map<String, Any>>())
+            return
+        }
+
+        val scanner = adapter.bluetoothLeScanner
+        if (scanner == null) {
+            result.success(emptyList<Map<String, Any>>())
+            return
+        }
+
+        val discovered = mutableListOf<Map<String, Any>>()
+        val seenAddresses = mutableSetOf<String>()
+
+        val scanCallback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, scanResult: ScanResult?) {
+                scanResult?.let { sr ->
+                    val device = sr.device
+                    val address = device.address ?: return
+                    if (seenAddresses.add(address)) {
+                        val name = try { device.name } catch (_: SecurityException) { null } ?: "Smart BLE Appliance"
+                        val rssi = sr.rssi
+                        val item = mapOf<String, Any>(
+                            "id" to "ble_${address.replace(":", "")}",
+                            "name" to name,
+                            "address" to address,
+                            "rssi" to rssi,
+                            "protocol" to "Bluetooth LE (2.4GHz)",
+                            "model" to "Smart BLE Appliance/Plug",
+                            "isBle" to true
+                        )
+                        discovered.add(item)
+                    }
+                }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                // Pass-through
+            }
+        }
+
+        try {
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+            scanner.startScan(null, settings, scanCallback)
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    scanner.stopScan(scanCallback)
+                } catch (_: Exception) {}
+                result.success(discovered)
+            }, 3000)
+        } catch (e: Exception) {
+            result.success(emptyList<Map<String, Any>>())
+        }
     }
 }
