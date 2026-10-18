@@ -159,39 +159,6 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Release Notes Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundLight,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'What\'s New:',
-                    style: AppTypography.style(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    info.releaseNotes,
-                    style: AppTypography.style(
-                      fontSize: 12,
-                      color: AppTheme.textMuted,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // Internal Download Banner Notice
             Row(
               children: [
